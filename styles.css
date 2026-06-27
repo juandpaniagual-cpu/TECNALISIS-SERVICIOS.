@@ -1,1465 +1,865 @@
-const TOKEN_KEY = "tecnalisis_session_token";
-const DEMO_STORAGE_KEY = "tecnalisis_demo_services_v2";
+:root {
+  --navy: #0b1636;
+  --navy-2: #101f46;
+  --ink: #17213a;
+  --muted: #6f7893;
+  --line: #e6eaf2;
+  --canvas: #f4f7fb;
+  --surface: #ffffff;
+  --teal: #18bfa8;
+  --teal-dark: #0b927f;
+  --blue: #2563eb;
+  --amber: #f59e0b;
+  --red: #e54861;
+  --violet: #7c3aed;
+  --shadow: 0 20px 60px rgba(16, 31, 70, .10);
+  --radius: 18px;
+}
 
-const ROLE_LABEL = {
-  admin: "Administrador",
-  technician: "Técnico",
-  engineer: "Ingeniero"
-};
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--canvas);
+  font: 14px/1.45 "Segoe UI", Arial, sans-serif;
+}
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+.hidden { display: none !important; }
+.eyebrow {
+  display: block;
+  color: var(--teal-dark);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+}
 
-const DEFAULT_JOB_TITLE = {
-  admin: "Administrador",
-  technician: "Técnico",
-  engineer: "Ingeniero"
-};
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 18px;
+}
+.brand img { width: 38px; height: 38px; }
+.brand b { color: #3de0c9; }
+.brand small { display: block; margin-top: -4px; color: #93a3c5; font-size: 11px; font-weight: 600; }
+.brand-large { font-size: 21px; }
 
-const STATUS_LABELS = ["Pendiente", "En progreso", "En revisión", "Completado"];
-const PRIORITY_LABELS = ["Alta", "Media", "Baja"];
-const PHOTO_UPLOAD_ENABLED = false;
+.login-screen, .setup-screen {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.05fr .95fr;
+  background: #fff;
+}
+.setup-screen {
+  grid-template-columns: 1fr;
+  place-items: center;
+  background:
+    radial-gradient(circle at 15% 85%, rgba(24, 191, 168, .16), transparent 28%),
+    radial-gradient(circle at 90% 20%, rgba(37, 99, 235, .16), transparent 32%),
+    var(--canvas);
+}
+.login-brand-panel {
+  position: relative;
+  overflow: hidden;
+  padding: 42px 48px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 15% 85%, rgba(24, 191, 168, .35), transparent 28%),
+    radial-gradient(circle at 90% 20%, rgba(37, 99, 235, .35), transparent 32%),
+    var(--navy);
+}
+.login-brand-panel::after {
+  content: "";
+  position: absolute;
+  right: -120px;
+  bottom: -140px;
+  width: 520px;
+  height: 520px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 50%;
+  box-shadow: 0 0 0 56px rgba(255,255,255,.03), 0 0 0 112px rgba(255,255,255,.02);
+}
+.login-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 610px;
+  margin-top: clamp(80px, 18vh, 180px);
+}
+.login-copy .eyebrow { color: #45e3cc; }
+.login-copy h1 {
+  margin: 12px 0 18px;
+  font-size: clamp(40px, 5vw, 68px);
+  line-height: 1.06;
+  letter-spacing: -2.3px;
+}
+.login-copy p { max-width: 560px; color: #c9d4eb; font-size: 16px; }
+.check-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 15px;
+  color: #eff5ff;
+  font-weight: 700;
+  font-size: 13px;
+}
+.check-line span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 0 6px rgba(24, 191, 168, .15);
+}
+.login-card {
+  width: min(410px, calc(100% - 44px));
+  margin: auto;
+  padding: 38px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+.login-card h2 { margin: 12px 0 6px; font-size: 28px; }
+.login-card p { margin: 0 0 25px; color: var(--muted); }
+.login-card small { display: block; margin-top: 16px; color: #9aa5bb; text-align: center; }
+.login-error {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 12px;
+  color: #b42338;
+  background: #fff0f3;
+  font-size: 12px;
+}
 
-const DEMO_USERS = [
-  { id: "demo-admin", fullName: "Juan Paniagua", email: "juandpaniagual@gmail.com", role: "admin", jobTitle: "Administrador", active: true },
-  { id: "demo-tech-1", fullName: "Carlos Ramírez", email: "carlos@tecnalisis.com", role: "technician", jobTitle: "Técnico senior", active: true },
-  { id: "demo-tech-2", fullName: "María Torres", email: "maria@tecnalisis.com", role: "technician", jobTitle: "Técnica de campo", active: true },
-  { id: "demo-eng-1", fullName: "Laura Gómez", email: "laura@tecnalisis.com", role: "engineer", jobTitle: "Ingeniera de seguimiento", active: true },
-  { id: "demo-eng-2", fullName: "Andrés Silva", email: "andres@tecnalisis.com", role: "engineer", jobTitle: "Ingeniero de operaciones", active: true }
-];
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 20;
+  width: 270px;
+  display: flex;
+  flex-direction: column;
+  padding: 28px 20px 18px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 10% 90%, rgba(24, 191, 168, .20), transparent 32%),
+    var(--navy);
+}
+.main-nav { flex: 1; margin-top: 34px; }
+.nav-label {
+  margin: 24px 12px 10px;
+  color: #7886a5;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+.nav-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0;
+  padding: 12px 13px;
+  color: #b8c4dd;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  text-align: left;
+  font-weight: 700;
+  transition: .18s ease;
+}
+.nav-item:hover, .nav-item.active {
+  color: #fff;
+  background: rgba(255,255,255,.08);
+}
+.nav-item span { width: 20px; color: #39d8c2; text-align: center; }
+.nav-item b {
+  margin-left: auto;
+  min-width: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: #35dec7;
+  background: rgba(24, 191, 168, .15);
+  font-size: 11px;
+  text-align: center;
+}
+.sidebar-user {
+  display: grid;
+  grid-template-columns: 42px 1fr 38px;
+  align-items: center;
+  gap: 11px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,.10);
+}
+.sidebar-user strong,
+.sidebar-user small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-user small { color: #9ba9c6; font-size: 11px; }
 
-const DEMO_SERVICES = [
-  {
-    id: "OS-0007",
-    client: "Clínica del Norte",
-    serviceType: "Mantenimiento preventivo",
-    equipment: "Unidad HVAC #03",
-    site: "Sede principal",
-    scheduledDate: "2026-06-27",
-    technicianId: "demo-tech-1",
-    engineerId: "demo-eng-1",
-    priority: "Alta",
-    status: "En progreso",
-    description: "Limpieza de serpentines, medición de presiones y revisión eléctrica.",
-    createdAt: "2026-06-25T08:20:00.000Z",
-    products: [
-      { productName: "Filtro HVAC", quantity: 2, unit: "unidad", unitPrice: 85000, totalPrice: 170000, notes: "Filtros de reposición instalados.", createdAt: "2026-06-27T09:10:00.000Z" }
-    ],
-    updates: [
-      { author: "Juan Paniagua", note: "Orden creada y asignada a Carlos Ramírez.", createdAt: "2026-06-25T08:20:00.000Z" },
-      { author: "Carlos Ramírez", note: "Servicio iniciado. Se detecta filtro con saturación alta.", createdAt: "2026-06-27T09:10:00.000Z" }
-    ]
-  },
-  {
-    id: "OS-0006",
-    client: "Alimentos La Pradera",
-    serviceType: "Mantenimiento correctivo",
-    equipment: "Compresor industrial C-12",
-    site: "Planta de producción",
-    scheduledDate: "2026-06-27",
-    technicianId: "demo-tech-2",
-    engineerId: "demo-eng-2",
-    priority: "Alta",
-    status: "Pendiente",
-    description: "Equipo presenta vibración inusual y aumento de temperatura.",
-    createdAt: "2026-06-26T11:30:00.000Z",
-    products: [],
-    updates: [
-      { author: "Andrés Silva", note: "Se solicita atención prioritaria por criticidad del activo.", createdAt: "2026-06-26T11:30:00.000Z" }
-    ]
-  },
-  {
-    id: "OS-0005",
-    client: "Centro Comercial Bahía",
-    serviceType: "Inspección técnica",
-    equipment: "Ascensor Torre B",
-    site: "Torre B",
-    scheduledDate: "2026-06-26",
-    technicianId: "demo-tech-1",
-    engineerId: "demo-eng-1",
-    priority: "Media",
-    status: "En revisión",
-    description: "Inspección trimestral de sistemas de seguridad y tracción.",
-    createdAt: "2026-06-24T14:00:00.000Z",
-    products: [],
-    updates: [
-      { author: "Carlos Ramírez", note: "Inspección terminada. Informe técnico listo para revisión.", createdAt: "2026-06-26T16:40:00.000Z" }
-    ]
-  },
-  {
-    id: "OS-0004",
-    client: "Hotel Mirador",
-    serviceType: "Mantenimiento preventivo",
-    equipment: "Caldera principal",
-    site: "Cuarto técnico",
-    scheduledDate: "2026-06-24",
-    technicianId: "demo-tech-2",
-    engineerId: "demo-eng-2",
-    priority: "Media",
-    status: "Completado",
-    description: "Mantenimiento semestral de caldera y prueba de emisiones.",
-    createdAt: "2026-06-22T10:10:00.000Z",
-    products: [
-      { productName: "Kit mantenimiento caldera", quantity: 1, unit: "kit", unitPrice: 320000, totalPrice: 320000, notes: "Incluye empaques y consumibles.", createdAt: "2026-06-24T13:50:00.000Z" }
-    ],
-    updates: [
-      { author: "María Torres", note: "Servicio finalizado sin novedades críticas.", createdAt: "2026-06-24T13:50:00.000Z" },
-      { author: "Andrés Silva", note: "Servicio aprobado por ingeniería.", createdAt: "2026-06-24T15:20:00.000Z" }
-    ]
+.main {
+  width: calc(100% - 270px);
+  margin-left: 270px;
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255,255,255,.92);
+  backdrop-filter: blur(14px);
+}
+.topbar-title { min-width: 160px; }
+.topbar-title strong { display: block; margin-top: 2px; font-size: 18px; }
+.global-search {
+  flex: 1;
+  max-width: 620px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #fff;
+  color: #9aa4ba;
+}
+.global-search input {
+  flex: 1;
+  min-width: 140px;
+  padding: 10px 0;
+  border: 0;
+  outline: 0;
+  color: var(--ink);
+  background: transparent;
+}
+.demo-role {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 700;
+}
+.content {
+  max-width: 1500px;
+  margin: auto;
+  padding: 30px 32px 54px;
+}
+
+.primary-button, .secondary-button, .ghost-button, .icon-button {
+  border: 0;
+  border-radius: 12px;
+  font-weight: 800;
+  transition: .18s ease;
+}
+.primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--teal), #14a994);
+  box-shadow: 0 12px 28px rgba(24, 191, 168, .22);
+}
+.primary-button:hover { transform: translateY(-1px); box-shadow: 0 15px 34px rgba(24, 191, 168, .30); }
+.secondary-button {
+  min-height: 42px;
+  padding: 0 16px;
+  color: #526079;
+  border: 1px solid #dbe1eb;
+  background: #fff;
+}
+.ghost-button {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 10px;
+  color: var(--teal-dark);
+  background: #e9fbf8;
+}
+.icon-button {
+  width: 40px;
+  height: 40px;
+  color: #73809b;
+  background: transparent;
+  font-size: 20px;
+}
+.icon-button:hover { color: var(--ink); background: #eef2f7; }
+.mobile-menu { display: none; }
+
+.field {
+  display: grid;
+  gap: 7px;
+  color: #42506a;
+  font-size: 12px;
+  font-weight: 800;
+}
+.field input, .field select, .field textarea {
+  width: 100%;
+  padding: 12px 13px;
+  border: 1px solid #dce3ef;
+  border-radius: 12px;
+  outline: 0;
+  color: var(--ink);
+  background: #fbfcfe;
+  font-weight: 500;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 4px rgba(24, 191, 168, .12);
+}
+.check-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  padding: 12px 14px;
+  border: 1px solid #dce3ef;
+  border-radius: 14px;
+  background: #f7fbff;
+  color: var(--ink);
+}
+.check-field input { width: auto; accent-color: var(--teal); }
+.product-sale-fields {
+  padding: 16px;
+  border: 1px dashed #9edbd2;
+  border-radius: 16px;
+  background: #f2fffc;
+}
+.product-sale-fields .panel-head { margin-bottom: 12px; }
+.product-grid { margin-top: 0; }
+.product-summary {
+  display: grid;
+  gap: 10px;
+}
+.product-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #d8f2ed;
+  border-radius: 14px;
+  background: #f7fffd;
+}
+.product-item strong, .product-item small { display: block; }
+.product-item small { color: var(--muted); }
+.product-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  color: #075f54;
+  background: #e3fbf6;
+  font-weight: 900;
+}
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.photo-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #dce3ef;
+  border-radius: 16px;
+  color: inherit;
+  background: #fbfcfe;
+}
+.photo-card:hover {
+  border-color: #9edbd2;
+  box-shadow: 0 14px 32px rgba(9, 25, 57, .08);
+}
+.photo-card img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 12px;
+  background: #eef2f7;
+}
+.photo-card span {
+  font-weight: 900;
+  color: var(--ink);
+}
+.photo-card small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+.photo-upload {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px dashed #9edbd2;
+  border-radius: 16px;
+  background: #f7fffd;
+}
+.helper-text {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+.page-head h1 { margin: 0; font-size: 28px; letter-spacing: -.7px; }
+.page-head p { margin: 6px 0 0; color: var(--muted); }
+.head-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: #4d5b73;
+  background: #fff;
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.metric-card {
+  position: relative;
+  overflow: hidden;
+  padding: 21px;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(16, 31, 70, .06);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.metric-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--metric), white 40%);
+  box-shadow: 0 18px 42px rgba(16, 31, 70, .12);
+}
+.metric-card::after {
+  content: "";
+  position: absolute;
+  right: -24px;
+  top: -24px;
+  width: 98px;
+  height: 98px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--metric), white 82%);
+}
+.metric-card span { color: var(--muted); font-weight: 700; font-size: 12px; }
+.metric-card strong { display: block; margin-top: 12px; font-size: 32px; }
+.metric-card small { color: var(--muted); }
+.metric-card em {
+  display: inline-flex;
+  margin-top: 12px;
+  color: var(--teal-dark);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+.metric-teal { --metric: var(--teal); }
+.metric-blue { --metric: var(--blue); }
+.metric-amber { --metric: var(--amber); }
+.metric-violet { --metric: var(--violet); }
+
+.grid-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, .85fr);
+  gap: 20px;
+}
+.panel {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(16, 31, 70, .06);
+}
+.panel + .panel { margin-top: 18px; }
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.panel-head h2 { margin: 0; font-size: 16px; }
+.panel-head p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+
+.service-list { display: grid; gap: 10px; }
+.service-row {
+  display: grid;
+  grid-template-columns: minmax(100px, .75fr) minmax(190px, 1.4fr) minmax(150px, 1fr) minmax(140px, .9fr) 96px 116px;
+  align-items: center;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid #edf1f6;
+  border-radius: 14px;
+  background: #fff;
+  transition: .18s ease;
+}
+.service-row:hover { transform: translateY(-1px); border-color: #cceee9; box-shadow: 0 10px 24px rgba(16, 31, 70, .06); }
+.service-row strong, .service-row small { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.service-row small { color: var(--muted); font-size: 11px; }
+.order-code { color: var(--teal-dark); font-weight: 900; }
+.person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #4f5d75;
+  font-weight: 700;
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--teal), var(--blue));
+  font-size: 12px;
+  font-weight: 900;
+}
+.avatar.small { width: 30px; height: 30px; border-radius: 9px; font-size: 10px; }
+.status, .priority, .role-pill {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.status-pending { color: #a56700; background: #fff7df; }
+.status-progress { color: #1d5fd0; background: #eaf2ff; }
+.status-review { color: #6651dd; background: #f0edff; }
+.status-done { color: #087c6b; background: #e7fbf7; }
+.priority-high { color: #b42338; background: #fff0f3; }
+.priority-medium { color: #a56700; background: #fff7df; }
+.priority-low { color: #087c6b; background: #e7fbf7; }
+.role-pill.pending { color: #8a4b00; background: #fff4d8; }
+
+.filter-bar {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 190px 170px 170px;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+}
+.filter-bar input, .filter-bar select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #dce3ef;
+  border-radius: 12px;
+  outline: 0;
+  color: var(--ink);
+  background: #fbfcfe;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  padding: 0;
+}
+.services-table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+}
+.services-table th {
+  padding: 14px 16px;
+  color: #8190aa;
+  background: #fafbfe;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  text-align: left;
+}
+.services-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f0f3f8;
+  font-size: 13px;
+}
+.services-table tbody tr { cursor: pointer; }
+.services-table tbody tr:hover { background: #fbfdff; }
+.empty {
+  padding: 48px 20px;
+  color: var(--muted);
+  text-align: center;
+}
+.empty.compact { padding: 24px 16px; }
+
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.team-card {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+.team-card.pending-card {
+  border-color: #ffe1a3;
+  background: linear-gradient(180deg, #fffaf0, #fff);
+}
+.team-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.team-top h3 { margin: 0; }
+.team-top p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+.team-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+}
+.team-stats div {
+  padding: 12px;
+  border-radius: 13px;
+  background: #f6f8fb;
+  color: var(--muted);
+  font-size: 12px;
+}
+.team-stats strong { display: block; color: var(--ink); font-size: 18px; }
+.card-note {
+  margin: 10px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.bar-list { display: grid; gap: 12px; }
+.bar-item {
+  display: grid;
+  grid-template-columns: 140px 1fr 44px;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+.interactive-bar {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.interactive-bar:hover {
+  border-color: #d8f2ed;
+  background: #f7fffd;
+}
+.dashboard-insights { margin-bottom: 20px; }
+.timeline-clickable { cursor: pointer; }
+.timeline-clickable:hover { background: #effbf8; }
+.bar-track {
+  overflow: hidden;
+  height: 9px;
+  border-radius: 999px;
+  background: #eef2f7;
+}
+.bar-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--teal), var(--blue));
+}
+
+.settings-list { display: grid; gap: 12px; }
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #eef2f7;
+  border-radius: 14px;
+}
+.setting-row code {
+  word-break: break-all;
+  color: var(--teal-dark);
+  font-weight: 800;
+}
+
+.modal, .drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(11, 22, 54, .46);
+}
+.modal-card {
+  width: min(820px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  padding: 24px;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+.modal-small { width: min(560px, 100%); }
+.modal-header, .modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.modal-header h2 { margin: 5px 0 0; }
+.modal-footer { margin-top: 22px; justify-content: flex-end; }
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 22px;
+}
+.field-full { grid-column: 1 / -1; }
+
+.drawer { place-items: stretch end; padding: 0; }
+.drawer-card {
+  width: min(560px, 100%);
+  height: 100%;
+  overflow: auto;
+  padding: 26px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+.drawer-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.detail-box {
+  padding: 14px;
+  border: 1px solid #eef2f7;
+  border-radius: 14px;
+  background: #fbfcfe;
+}
+.detail-box small {
+  display: block;
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 10px;
+}
+.detail-box strong { display: block; margin-top: 4px; }
+.timeline { display: grid; gap: 10px; margin-top: 12px; }
+.timeline-item {
+  padding: 12px;
+  border-left: 3px solid var(--teal);
+  border-radius: 12px;
+  background: #f6fbfa;
+}
+.timeline-item p { margin: 0; }
+.timeline-item small { color: var(--muted); }
+.drawer-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.status-editor {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #dff7f2;
+  border-radius: 16px;
+  background: #f4fffc;
+}
+.status-editor .field { margin: 0; }
+.note-box {
+  width: 100%;
+  min-height: 96px;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid #dce3ef;
+  border-radius: 12px;
+  outline: 0;
+}
+
+.toast-stack {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 100;
+  display: grid;
+  gap: 10px;
+}
+.toast {
+  max-width: 360px;
+  padding: 13px 15px;
+  border-radius: 14px;
+  color: #fff;
+  background: var(--navy);
+  box-shadow: var(--shadow);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+@media (max-width: 1100px) {
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .grid-two { grid-template-columns: 1fr; }
+  .team-grid { grid-template-columns: repeat(2, 1fr); }
+  .filter-bar { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 820px) {
+  .login-screen { grid-template-columns: 1fr; }
+  .login-brand-panel { min-height: 42vh; padding: 30px; }
+  .login-copy { margin-top: 60px; }
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform .22s ease;
   }
-];
-
-let serverMode = false;
-let users = [...DEMO_USERS];
-let services = loadDemoServices();
-let currentUser = null;
-
-const state = {
-  view: "dashboard",
-  filters: {
-    query: "",
-    technician: "Todos",
-    status: "Todos",
-    priority: "Todas"
-  },
-  selectedServiceId: null
-};
-
-const $ = selector => document.querySelector(selector);
-const $$ = selector => [...document.querySelectorAll(selector)];
-
-function loadDemoServices() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(DEMO_STORAGE_KEY) || "null");
-    return Array.isArray(saved) ? saved : structuredClone(DEMO_SERVICES);
-  } catch {
-    return structuredClone(DEMO_SERVICES);
-  }
-}
-
-function saveDemoServices() {
-  if (!serverMode) localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(services));
-}
-
-function token() {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-async function api(path, options = {}) {
-  const headers = new Headers(options.headers || {});
-  headers.set("Accept", "application/json");
-
-  if (options.body && !(options.body instanceof FormData)) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  const savedToken = token();
-  if (savedToken) headers.set("Authorization", `Bearer ${savedToken}`);
-
-  const response = await fetch(path, {
-    ...options,
-    headers,
-    body: options.body && !(options.body instanceof FormData) ? JSON.stringify(options.body) : options.body
-  });
-
-  let payload = null;
-  try {
-    payload = await response.json();
-  } catch {
-    payload = null;
-  }
-
-  if (!response.ok) {
-    throw new Error(payload?.error || `Error ${response.status}`);
-  }
-
-  return payload;
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function normalize(value) {
-  return String(value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
-function initials(name) {
-  return String(name || "TS")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map(part => part[0] || "")
-    .join("")
-    .toUpperCase();
-}
-
-function formatDate(value) {
-  if (!value) return "Sin fecha";
-  return new Intl.DateTimeFormat("es-CO", { day: "2-digit", month: "short", year: "numeric" })
-    .format(new Date(`${value}T12:00:00`))
-    .replace(".", "");
-}
-
-function formatDateTime(value) {
-  if (!value) return "Ahora";
-  return new Intl.DateTimeFormat("es-CO", {
-    day: "2-digit",
-    month: "short",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(new Date(value)).replace(".", "");
-}
-
-function formatCurrency(value) {
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0
-  }).format(Number(value || 0));
-}
-
-function serviceProductTotal(service) {
-  return (service.products || []).reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
-}
-
-function productFromValues(values) {
-  if (!values.includeProduct) return [];
-  const productName = String(values.productName || "").trim();
-  if (!productName) return [];
-  const quantity = Math.max(Number(values.productQuantity || 1), 0) || 1;
-  const unitPrice = Math.max(Number(values.productUnitPrice || 0), 0);
-  return [{
-    productName,
-    quantity,
-    unit: String(values.productUnit || "unidad").trim() || "unidad",
-    unitPrice,
-    totalPrice: quantity * unitPrice,
-    notes: String(values.productNotes || "").trim(),
-    createdAt: new Date().toISOString()
-  }];
-}
-
-function productsSummary(products = []) {
-  if (!products.length) {
-    return `<div class="empty">Este servicio no tiene productos o insumos vendidos.</div>`;
-  }
-  const total = products.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
-  return `
-    <div class="product-summary">
-      ${products.map(item => `
-        <div class="product-item">
-          <div>
-            <strong>${escapeHtml(item.productName)}</strong>
-            <small>${escapeHtml(item.quantity)} ${escapeHtml(item.unit || "unidad")} × ${escapeHtml(formatCurrency(item.unitPrice))}</small>
-            ${item.notes ? `<small>${escapeHtml(item.notes)}</small>` : ""}
-          </div>
-          <strong>${escapeHtml(formatCurrency(item.totalPrice))}</strong>
-        </div>
-      `).join("")}
-      <div class="product-total">
-        <span>Total productos / insumos</span>
-        <span>${escapeHtml(formatCurrency(total))}</span>
-      </div>
-    </div>
-  `;
-}
-
-function formatFileSize(bytes) {
-  const value = Number(bytes || 0);
-  if (value < 1024) return `${value} B`;
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
-  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function photosSummary(photos = []) {
-  if (!photos.length) {
-    return `<div class="empty compact">Aún no hay fotos de evidencia en esta orden.</div>`;
-  }
-
-  return `
-    <div class="photo-grid">
-      ${photos.map(photo => `
-        <a class="photo-card" href="${escapeHtml(photo.url)}" target="_blank" rel="noopener">
-          <img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.fileName || "Evidencia del servicio")}" loading="lazy">
-          <span>${escapeHtml(photo.caption || photo.fileName || "Evidencia")}</span>
-          <small>${escapeHtml(photo.uploadedBy || "Usuario")} · ${escapeHtml(formatDateTime(photo.createdAt))} · ${escapeHtml(formatFileSize(photo.fileSize))}</small>
-        </a>
-      `).join("")}
-    </div>
-  `;
-}
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-function canDocumentService(service) {
-  return currentUser.role === "admin" ||
-    currentUser.role === "engineer" ||
-    (currentUser.role === "technician" && service.technicianId === currentUser.id);
-}
-
-function userById(id) {
-  return users.find(user => user.id === id) || {
-    id: "",
-    fullName: "Sin asignar",
-    email: "",
-    role: "technician",
-    jobTitle: "Sin asignar",
-    active: false
-  };
-}
-
-function roleServices() {
-  if (currentUser?.role === "technician") {
-    return services.filter(service => service.technicianId === currentUser.id);
-  }
-  return services;
-}
-
-function serviceMatchesQuery(service, query) {
-  const technician = userById(service.technicianId);
-  const engineer = userById(service.engineerId);
-  const text = [
-    service.id,
-    service.client,
-    service.serviceType,
-    service.equipment,
-    service.site,
-    technician.fullName,
-    engineer.fullName,
-    service.status,
-    service.priority
-  ].join(" ");
-  return normalize(text).includes(normalize(query));
-}
-
-function filteredServices() {
-  let output = roleServices();
-  if (state.filters.query) output = output.filter(service => serviceMatchesQuery(service, state.filters.query));
-  if (state.filters.technician !== "Todos") output = output.filter(service => service.technicianId === state.filters.technician);
-  if (state.filters.status !== "Todos") output = output.filter(service => service.status === state.filters.status);
-  if (state.filters.priority !== "Todas") output = output.filter(service => service.priority === state.filters.priority);
-  return output;
-}
-
-function statusClass(status) {
-  return {
-    "Pendiente": "pending",
-    "En progreso": "progress",
-    "En revisión": "review",
-    "Completado": "done"
-  }[status] || "pending";
-}
-
-function priorityClass(priority) {
-  return {
-    "Alta": "high",
-    "Media": "medium",
-    "Baja": "low"
-  }[priority] || "medium";
-}
-
-function avatar(user, small = false) {
-  return `<span class="avatar ${small ? "small" : ""}">${escapeHtml(initials(user.fullName))}</span>`;
-}
-
-function toast(message) {
-  const item = document.createElement("div");
-  item.className = "toast";
-  item.textContent = message;
-  $("#toast-stack").appendChild(item);
-  setTimeout(() => item.remove(), 3800);
-}
-
-function getShareUrl() {
-  const host = window.location.hostname;
-  if (host.endsWith(".pages.dev")) {
-    const parts = host.split(".");
-    if (parts.length > 3) {
-      return `${window.location.protocol}//${parts.slice(-3).join(".")}`;
-    }
-  }
-  return window.location.origin;
-}
-
-async function copyShareLink() {
-  const url = getShareUrl();
-  try {
-    await navigator.clipboard.writeText(url);
-    toast("Enlace copiado para compartir.");
-  } catch (error) {
-    const input = $("#share-link-input");
-    if (input) input.select();
-    toast("Selecciona el enlace y cópialo manualmente.");
-  }
-}
-
-function showOnly(section) {
-  $("#login-screen").classList.toggle("hidden", section !== "login");
-  $("#setup-screen").classList.toggle("hidden", section !== "setup");
-  $("#app-shell").classList.toggle("hidden", section !== "app");
-}
-
-function showLogin(message = "") {
-  showOnly("login");
-  if (message) {
-    $("#login-error").textContent = message;
-    $("#login-error").classList.remove("hidden");
-  } else {
-    $("#login-error").classList.add("hidden");
-  }
-}
-
-function showSetup(message = "") {
-  showOnly("setup");
-  if (message) {
-    $("#setup-error").textContent = message;
-    $("#setup-error").classList.remove("hidden");
-  } else {
-    $("#setup-error").classList.add("hidden");
-  }
-}
-
-function showApp() {
-  showOnly("app");
-  render();
-}
-
-function enterDemo(role = "admin") {
-  serverMode = false;
-  users = structuredClone(DEMO_USERS);
-  services = loadDemoServices();
-  currentUser = users.find(user => user.role === role) || users[0];
-  $("#demo-role").classList.remove("hidden");
-  $("#demo-role").value = currentUser.role;
-  showApp();
-  toast("Modo demo activo. Los datos quedan solo en este navegador.");
-}
-
-async function loadServerData() {
-  const [teamData, serviceData] = await Promise.all([
-    api("/api/team"),
-    api("/api/services")
-  ]);
-  users = teamData.users || [];
-  services = serviceData.services || [];
-}
-
-async function start() {
-  try {
-    const setup = await api("/api/setup-status");
-    if (setup.needsSetup) {
-      showSetup();
-      return;
-    }
-
-    if (!token()) {
-      showLogin();
-      return;
-    }
-
-    const me = await api("/api/me");
-    currentUser = me.user;
-    serverMode = true;
-    $("#demo-role").classList.add("hidden");
-    await loadServerData();
-    showApp();
-  } catch (error) {
-    console.warn(error);
-    showLogin("No se pudo conectar con Cloudflare D1. Revisa que el binding se llame DB o usa el modo demo.");
-  }
-}
-
-async function createFirstAdmin(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const values = Object.fromEntries(new FormData(form));
-  const button = form.querySelector("button[type='submit']");
-  button.disabled = true;
-  button.textContent = "Creando...";
-  $("#setup-error").classList.add("hidden");
-
-  try {
-    const result = await api("/api/bootstrap", {
-      method: "POST",
-      body: values
-    });
-    localStorage.setItem(TOKEN_KEY, result.token);
-    currentUser = result.user;
-    serverMode = true;
-    $("#demo-role").classList.add("hidden");
-    await loadServerData();
-    showApp();
-    toast("Administrador creado correctamente.");
-  } catch (error) {
-    $("#setup-error").textContent = error.message;
-    $("#setup-error").classList.remove("hidden");
-  } finally {
-    button.disabled = false;
-    button.textContent = "Crear administrador";
-  }
-}
-
-async function signIn(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const values = Object.fromEntries(new FormData(form));
-  const button = form.querySelector("button[type='submit']");
-  button.disabled = true;
-  button.textContent = "Ingresando...";
-  $("#login-error").classList.add("hidden");
-
-  try {
-    const result = await api("/api/login", {
-      method: "POST",
-      body: values
-    });
-    localStorage.setItem(TOKEN_KEY, result.token);
-    currentUser = result.user;
-    serverMode = true;
-    $("#demo-role").classList.add("hidden");
-    await loadServerData();
-    showApp();
-    toast("Sesión iniciada.");
-  } catch (error) {
-    $("#login-error").textContent = error.message || "No pudimos iniciar sesión.";
-    $("#login-error").classList.remove("hidden");
-  } finally {
-    button.disabled = false;
-    button.textContent = "Ingresar";
-  }
-}
-
-async function logout() {
-  if (serverMode) {
-    try {
-      await api("/api/logout", { method: "POST" });
-    } catch {
-      // Si la sesión ya expiró, limpiamos local igualmente.
-    }
-    localStorage.removeItem(TOKEN_KEY);
-    currentUser = null;
-    showLogin();
-    return;
-  }
-  enterDemo();
-}
-
-function pageHead(title, subtitle, actions = "") {
-  return `
-    <div class="page-head">
-      <div>
-        <h1>${escapeHtml(title)}</h1>
-        <p>${escapeHtml(subtitle)}</p>
-      </div>
-      <div class="head-actions">${actions}</div>
-    </div>
-  `;
-}
-
-function metric(label, value, detail, tone) {
-  return `
-    <article class="metric-card metric-${tone}">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(value)}</strong>
-      <small>${escapeHtml(detail)}</small>
-    </article>
-  `;
-}
-
-function serviceRow(service) {
-  const technician = userById(service.technicianId);
-  return `
-    <div class="service-row" data-service-id="${escapeHtml(service.id)}">
-      <span class="order-code">${escapeHtml(service.id)}</span>
-      <div>
-        <strong>${escapeHtml(service.serviceType)}</strong>
-        <small>${escapeHtml(service.equipment)}</small>
-      </div>
-      <div>
-        <strong>${escapeHtml(service.client)}</strong>
-        <small>${escapeHtml(service.site || "Sin sede")}</small>
-      </div>
-      <span class="person">${avatar(technician, true)} ${escapeHtml(technician.fullName)}</span>
-      <span>${escapeHtml(formatDate(service.scheduledDate))}</span>
-      <span class="status status-${statusClass(service.status)}">${escapeHtml(service.status)}</span>
-    </div>
-  `;
-}
-
-function renderDashboard() {
-  const visible = roleServices();
-  const open = visible.filter(service => service.status !== "Completado").length;
-  const inProgress = visible.filter(service => service.status === "En progreso").length;
-  const review = visible.filter(service => service.status === "En revisión").length;
-  const completed = visible.filter(service => service.status === "Completado").length;
-  const next = [...visible].sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate)).slice(0, 5);
-  const recent = [...visible].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 4);
-
-  $("#content").innerHTML = `
-    ${pageHead(
-      `Hola, ${currentUser.fullName.split(" ")[0]}`,
-      currentUser.role === "technician"
-        ? "Estos son tus servicios asignados."
-        : "Aquí tienes el estado general de la operación."
-    )}
-    <div class="metrics-grid">
-      ${metric("Servicios abiertos", open, "Pendientes o en ejecución", "teal")}
-      ${metric("En progreso", inProgress, "Actualmente en campo", "blue")}
-      ${metric("En revisión", review, "Requieren seguimiento", "amber")}
-      ${metric("Completados", completed, "Cerrados y aprobados", "violet")}
-    </div>
-    <div class="grid-two">
-      <section class="panel">
-        <div class="panel-head">
-          <div><h2>Próximos servicios</h2><p>Órdenes visibles para tu rol</p></div>
-          <button class="secondary-button" data-go="services">Ver todos</button>
-        </div>
-        <div class="service-list">
-          ${next.length ? next.map(serviceRow).join("") : `<div class="empty">No hay servicios programados.</div>`}
-        </div>
-      </section>
-      <section class="panel">
-        <div class="panel-head">
-          <div><h2>Actividad reciente</h2><p>Últimas novedades registradas</p></div>
-        </div>
-        <div class="timeline">
-          ${recent.length ? recent.map(service => {
-            const update = service.updates.at(-1);
-            return `
-              <div class="timeline-item">
-                <p><strong>${escapeHtml(service.id)}</strong> · ${escapeHtml(update?.note || service.description)}</p>
-                <small>${escapeHtml(update?.author || "Sistema")} · ${escapeHtml(formatDateTime(update?.createdAt || service.createdAt))}</small>
-              </div>
-            `;
-          }).join("") : `<div class="empty">Aún no hay actividad.</div>`}
-        </div>
-      </section>
-    </div>
-  `;
-  wireServiceClicks();
-  wireGoButtons();
-}
-
-function technicianFilterOptions() {
-  const technicians = currentUser.role === "technician"
-    ? [currentUser]
-    : users.filter(user => user.role === "technician" && user.active !== false);
-  return `<option value="Todos">Todos los técnicos</option>` + technicians
-    .map(user => `<option value="${escapeHtml(user.id)}" ${state.filters.technician === user.id ? "selected" : ""}>${escapeHtml(user.fullName)}</option>`)
-    .join("");
-}
-
-function renderServices() {
-  const output = filteredServices();
-  $("#content").innerHTML = `
-    ${pageHead(
-      currentUser.role === "technician" ? "Mis servicios" : "Órdenes de servicio",
-      `${output.length} orden${output.length === 1 ? "" : "es"} encontrada${output.length === 1 ? "" : "s"}`,
-      `<button class="secondary-button" id="export-button">Exportar CSV</button>`
-    )}
-    <div class="filter-bar">
-      <input id="filter-query" value="${escapeHtml(state.filters.query)}" placeholder="Buscar por cliente, equipo, orden o técnico..." />
-      <select id="filter-technician">${technicianFilterOptions()}</select>
-      <select id="filter-status">
-        <option>Todos</option>
-        ${STATUS_LABELS.map(status => `<option ${state.filters.status === status ? "selected" : ""}>${status}</option>`).join("")}
-      </select>
-      <select id="filter-priority">
-        <option>Todas</option>
-        ${PRIORITY_LABELS.map(priority => `<option ${state.filters.priority === priority ? "selected" : ""}>${priority}</option>`).join("")}
-      </select>
-    </div>
-    <section class="panel table-wrap">
-      <table class="services-table">
-        <thead>
-          <tr>
-            <th>ORDEN</th>
-            <th>SERVICIO / EQUIPO</th>
-            <th>CLIENTE</th>
-            <th>TÉCNICO</th>
-            <th>FECHA</th>
-            <th>PRIORIDAD</th>
-            <th>ESTADO</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${output.length ? output.map(service => {
-            const technician = userById(service.technicianId);
-            return `
-              <tr data-service-id="${escapeHtml(service.id)}">
-                <td><span class="order-code">${escapeHtml(service.id)}</span></td>
-                <td><strong>${escapeHtml(service.serviceType)}</strong><br><small>${escapeHtml(service.equipment)}</small></td>
-                <td>${escapeHtml(service.client)}<br><small>${escapeHtml(service.site || "Sin sede")}</small></td>
-                <td><span class="person">${avatar(technician, true)} ${escapeHtml(technician.fullName)}</span></td>
-                <td>${escapeHtml(formatDate(service.scheduledDate))}</td>
-                <td><span class="priority priority-${priorityClass(service.priority)}">${escapeHtml(service.priority)}</span></td>
-                <td><span class="status status-${statusClass(service.status)}">${escapeHtml(service.status)}</span></td>
-              </tr>
-            `;
-          }).join("") : `<tr><td colspan="7"><div class="empty">No encontramos servicios con esos filtros.</div></td></tr>`}
-        </tbody>
-      </table>
-    </section>
-  `;
-
-  $("#filter-query").addEventListener("input", event => {
-    state.filters.query = event.target.value;
-    renderServices();
-    $("#filter-query").focus();
-  });
-  $("#filter-technician").addEventListener("change", event => {
-    state.filters.technician = event.target.value;
-    renderServices();
-  });
-  $("#filter-status").addEventListener("change", event => {
-    state.filters.status = event.target.value;
-    renderServices();
-  });
-  $("#filter-priority").addEventListener("change", event => {
-    state.filters.priority = event.target.value;
-    renderServices();
-  });
-  $("#export-button").addEventListener("click", exportCsv);
-  wireServiceClicks();
-}
-
-function renderReports() {
-  const visible = roleServices();
-  const total = Math.max(visible.length, 1);
-  const byStatus = STATUS_LABELS.map(status => ({
-    label: status,
-    count: visible.filter(service => service.status === status).length
-  }));
-  const byTechnician = users
-    .filter(user => user.role === "technician")
-    .map(user => ({
-      user,
-      count: visible.filter(service => service.technicianId === user.id).length
-    }))
-    .filter(item => item.count > 0 || currentUser.role !== "technician");
-
-  $("#content").innerHTML = `
-    ${pageHead("Informes", "Indicadores rápidos de mantenimiento", `<button class="secondary-button" id="export-report">Descargar CSV</button>`)}
-    <div class="grid-two">
-      <section class="panel">
-        <div class="panel-head"><div><h2>Servicios por estado</h2><p>Distribución operacional</p></div></div>
-        <div class="bar-list">
-          ${byStatus.map(item => `
-            <div class="bar-item">
-              <span>${escapeHtml(item.label)}</span>
-              <span class="bar-track"><i style="width:${Math.round((item.count / total) * 100)}%"></i></span>
-              <strong>${item.count}</strong>
-            </div>
-          `).join("")}
-        </div>
-      </section>
-      <section class="panel">
-        <div class="panel-head"><div><h2>Servicios por técnico</h2><p>Carga de trabajo asignada</p></div></div>
-        <div class="bar-list">
-          ${byTechnician.length ? byTechnician.map(item => `
-            <div class="bar-item">
-              <span>${escapeHtml(item.user.fullName)}</span>
-              <span class="bar-track"><i style="width:${Math.round((item.count / total) * 100)}%"></i></span>
-              <strong>${item.count}</strong>
-            </div>
-          `).join("") : `<div class="empty">Aún no hay técnicos con servicios.</div>`}
-        </div>
-      </section>
-    </div>
-  `;
-  $("#export-report").addEventListener("click", exportCsv);
-}
-
-function renderTeam() {
-  const canCreate = currentUser.role === "admin";
-  const pendingUsers = users.filter(user => user.active === false);
-  const activeUsers = users.filter(user => user.active !== false);
-  $("#content").innerHTML = `
-    ${pageHead("Equipo", "Usuarios activos, solicitudes y carga de trabajo", canCreate ? `<button class="primary-button" id="new-user-button">+ Nuevo usuario</button>` : "")}
-    ${canCreate && pendingUsers.length ? `
-      <section class="panel">
-        <div class="panel-head">
-          <div>
-            <h2>Solicitudes pendientes</h2>
-            <p>Personas registradas desde el enlace público que esperan autorización</p>
-          </div>
-        </div>
-        <div class="team-grid">
-          ${pendingUsers.map(user => `
-            <article class="team-card pending-card">
-              <div class="team-top">
-                ${avatar(user)}
-                <div>
-                  <h3>${escapeHtml(user.fullName)}</h3>
-                  <p>${escapeHtml(user.email || user.phone || "Sin correo")}</p>
-                </div>
-              </div>
-              <span class="role-pill pending">Pendiente · ${escapeHtml(ROLE_LABEL[user.role] || user.role)}</span>
-              ${user.phone ? `<p class="card-note">Tel: ${escapeHtml(user.phone)}</p>` : ""}
-              <label class="field">
-                Autorizar como
-                <select data-approve-role="${escapeHtml(user.id)}">
-                  <option value="technician" ${user.role === "technician" ? "selected" : ""}>Técnico</option>
-                  <option value="engineer" ${user.role === "engineer" ? "selected" : ""}>Ingeniero</option>
-                  <option value="admin" ${user.role === "admin" ? "selected" : ""}>Administrador</option>
-                </select>
-              </label>
-              <button class="primary-button" data-approve-user="${escapeHtml(user.id)}">Autorizar ingreso</button>
-            </article>
-          `).join("")}
-        </div>
-      </section>
-    ` : ""}
-    <div class="team-grid">
-      ${activeUsers.map(user => {
-        const assigned = services.filter(service => service.technicianId === user.id || service.engineerId === user.id);
-        const completed = assigned.filter(service => service.status === "Completado").length;
-        return `
-          <article class="team-card">
-            <div class="team-top">
-              ${avatar(user)}
-              <div>
-                <h3>${escapeHtml(user.fullName)}</h3>
-                <p>${escapeHtml(user.email || user.jobTitle)}</p>
-              </div>
-            </div>
-            <span class="role-pill">${escapeHtml(user.jobTitle || ROLE_LABEL[user.role])}</span>
-            <div class="team-stats">
-              <div><strong>${assigned.length}</strong> Servicios</div>
-              <div><strong>${completed}</strong> Cerrados</div>
-            </div>
-          </article>
-        `;
-      }).join("")}
-    </div>
-  `;
-
-  if (canCreate) {
-    $("#new-user-button").addEventListener("click", openUserModal);
-    $$("[data-approve-user]").forEach(button => {
-      button.addEventListener("click", () => approveUser(button.dataset.approveUser));
-    });
-  }
-}
-
-function renderSettings() {
-  const shareUrl = getShareUrl();
-  $("#content").innerHTML = `
-    ${pageHead("Configuración", "Datos para GitHub, Cloudflare Pages Functions y D1")}
-    <section class="panel">
-      <div class="panel-head">
-        <div>
-          <h2>Enlace para técnicos e ingenieros</h2>
-          <p>Comparte este enlace para que soliciten acceso o ingresen si ya fueron autorizados</p>
-        </div>
-        <button class="primary-button" id="copy-share-link">Copiar enlace</button>
-      </div>
-      <label class="field">
-        Enlace público de acceso
-        <input id="share-link-input" value="${escapeHtml(shareUrl)}" readonly>
-      </label>
-      <p class="helper-text">No compartas enlaces de vista previa que empiezan con códigos largos. Este enlace principal queda estable para tu equipo.</p>
-    </section>
-    <section class="panel">
-      <div class="panel-head"><div><h2>Base de datos</h2><p>La aplicación ya no usa Supabase</p></div></div>
-      <div class="settings-list">
-        <div class="setting-row"><strong>Proveedor</strong><code>Cloudflare D1</code></div>
-        <div class="setting-row"><strong>Binding requerido</strong><code>DB</code></div>
-        <div class="setting-row"><strong>Fotos / evidencias</strong><code>Opcional · Cloudflare R2</code></div>
-        <div class="setting-row"><strong>Modo actual</strong><code>${serverMode ? "Cloudflare D1 real" : "Demo local"}</code></div>
-      </div>
-    </section>
-    <section class="panel">
-      <div class="panel-head"><div><h2>Publicación recomendada</h2><p>Repositorio GitHub conectado a Cloudflare Pages</p></div></div>
-      <ol>
-        <li>Sube esta carpeta completa a un repositorio GitHub.</li>
-        <li>En Cloudflare Pages elige <strong>Connect to Git</strong>.</li>
-        <li>Framework preset: <strong>None</strong>.</li>
-        <li>Build command: <strong>exit 0</strong>.</li>
-        <li>Output directory: <strong>.</strong>.</li>
-        <li>En Cloudflare, vincula una base D1 con binding <strong>DB</strong>.</li>
-        <li>Opcional: para fotos, crea un bucket R2 y vincúlalo con binding <strong>EVIDENCE_BUCKET</strong>.</li>
-      </ol>
-    </section>
-  `;
-
-  $("#copy-share-link").addEventListener("click", copyShareLink);
-}
-
-function render() {
-  if (!currentUser) return;
-
-  if (currentUser.role !== "admin" && state.view === "settings") state.view = "dashboard";
-
-  const titleMap = {
-    dashboard: "Resumen",
-    services: "Servicios",
-    reports: "Informes",
-    team: "Equipo",
-    settings: "Configuración"
-  };
-
-  $("#page-title").textContent = titleMap[state.view] || "Resumen";
-  $("#sidebar-name").textContent = currentUser.fullName;
-  $("#sidebar-role").textContent = currentUser.jobTitle || ROLE_LABEL[currentUser.role];
-  $("#sidebar-avatar").textContent = initials(currentUser.fullName);
-  $("#open-count").textContent = roleServices().filter(service => service.status !== "Completado").length;
-  $("#new-service-button").classList.toggle("hidden", currentUser.role === "technician");
-
-  $$(".admin-only").forEach(item => item.classList.toggle("hidden", currentUser.role !== "admin"));
-  $$(".nav-item").forEach(item => item.classList.toggle("active", item.dataset.view === state.view));
-
-  if (state.view === "dashboard") renderDashboard();
-  if (state.view === "services") renderServices();
-  if (state.view === "reports") renderReports();
-  if (state.view === "team") renderTeam();
-  if (state.view === "settings") renderSettings();
-}
-
-function wireGoButtons() {
-  $$("[data-go]").forEach(button => button.addEventListener("click", () => {
-    state.view = button.dataset.go;
-    render();
-  }));
-}
-
-function wireServiceClicks() {
-  $$("[data-service-id]").forEach(row => row.addEventListener("click", () => openServiceDetail(row.dataset.serviceId)));
-}
-
-function nextCode() {
-  const numbers = services
-    .map(service => Number(String(service.id).replace(/\D/g, "")))
-    .filter(Number.isFinite);
-  const next = Math.max(0, ...numbers) + 1;
-  return `OS-${String(next).padStart(4, "0")}`;
-}
-
-function openServiceModal() {
-  const technicians = users.filter(user => user.role === "technician" && user.active !== false);
-  const engineers = users.filter(user => user.role === "engineer" && user.active !== false);
-  $("#technician-select").innerHTML = technicians.length
-    ? technicians.map(user => `<option value="${escapeHtml(user.id)}">${escapeHtml(user.fullName)}</option>`).join("")
-    : `<option value="">Primero crea un técnico</option>`;
-  $("#engineer-select").innerHTML = `<option value="">Sin asignar</option>` + engineers
-    .map(user => `<option value="${escapeHtml(user.id)}">${escapeHtml(user.fullName)}</option>`)
-    .join("");
-  $("#service-form").reset();
-  $("#product-sale-fields").classList.add("hidden");
-  $("#service-modal").classList.remove("hidden");
-}
-
-function closeServiceModal() {
-  $("#service-modal").classList.add("hidden");
-}
-
-async function createService(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const values = Object.fromEntries(new FormData(form));
-
-  if (!values.technicianId) {
-    toast("Primero crea al menos un usuario con rol Técnico.");
-    return;
-  }
-
-  try {
-    const products = productFromValues(values);
-    values.products = products;
-
-    if (serverMode) {
-      const created = await api("/api/services", {
-        method: "POST",
-        body: values
-      });
-      await loadServerData();
-      closeServiceModal();
-      state.view = "services";
-      render();
-      toast(`Orden ${created.service.id} creada.`);
-      return;
-    }
-
-    const localService = {
-      id: nextCode(),
-      client: values.client,
-      serviceType: values.serviceType,
-      equipment: values.equipment,
-      site: values.site,
-      scheduledDate: values.scheduledDate,
-      technicianId: values.technicianId,
-      engineerId: values.engineerId || null,
-      priority: values.priority,
-      status: "Pendiente",
-      description: values.description,
-      createdAt: new Date().toISOString(),
-      products,
-      updates: [
-        { author: currentUser.fullName, note: "Orden creada.", createdAt: new Date().toISOString() }
-      ]
-    };
-
-    services.unshift(localService);
-    saveDemoServices();
-    closeServiceModal();
-    state.view = "services";
-    render();
-    toast(`Orden ${localService.id} creada.`);
-  } catch (error) {
-    toast(error.message);
+  .sidebar.open { transform: translateX(0); }
+  .main { width: 100%; margin-left: 0; }
+  .mobile-menu { display: inline-grid; place-items: center; }
+  .topbar { padding: 12px 16px; flex-wrap: wrap; }
+  .topbar-title { flex: 1; }
+  .global-search { order: 4; width: 100%; max-width: none; }
+  .content { padding: 22px 16px 42px; }
+  .page-head { align-items: flex-start; flex-direction: column; }
+  .metrics-grid, .team-grid, .form-grid, .filter-bar, .detail-grid, .status-editor, .photo-grid, .photo-upload { grid-template-columns: 1fr; }
+  .service-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 }
-
-function openUserModal() {
-  $("#user-form").reset();
-  $("#user-modal").classList.remove("hidden");
-}
-
-function closeUserModal() {
-  $("#user-modal").classList.add("hidden");
-}
-
-function openAccessModal() {
-  $("#access-form").reset();
-  $("#access-error").classList.add("hidden");
-  $("#access-modal").classList.remove("hidden");
-}
-
-function closeAccessModal() {
-  $("#access-modal").classList.add("hidden");
-}
-
-async function requestAccess(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const values = Object.fromEntries(new FormData(form));
-  const button = form.querySelector("button[type='submit']");
-  button.disabled = true;
-  button.textContent = "Enviando...";
-  $("#access-error").classList.add("hidden");
-
-  try {
-    if (serverMode || !token()) {
-      const result = await api("/api/register", {
-        method: "POST",
-        body: values
-      });
-      closeAccessModal();
-      showLogin(result.message || "Solicitud enviada. Espera aprobación del administrador.");
-      toast("Solicitud enviada al administrador.");
-      return;
-    }
-
-    toast("En modo demo no se envían solicitudes reales.");
-    closeAccessModal();
-  } catch (error) {
-    $("#access-error").textContent = error.message;
-    $("#access-error").classList.remove("hidden");
-  } finally {
-    button.disabled = false;
-    button.textContent = "Enviar solicitud";
-  }
-}
-
-async function approveUser(userId) {
-  const user = users.find(item => item.id === userId);
-  const roleSelect = $$("[data-approve-role]").find(select => select.dataset.approveRole === userId);
-  const role = roleSelect?.value || user?.role || "technician";
-  if (!user) return;
-
-  try {
-    if (serverMode) {
-      await api(`/api/team/${encodeURIComponent(userId)}/approve`, {
-        method: "POST",
-        body: {
-          role,
-          jobTitle: user.jobTitle || DEFAULT_JOB_TITLE[role]
-        }
-      });
-      await loadServerData();
-      render();
-      toast(`${user.fullName} ya puede ingresar a la app.`);
-      return;
-    }
-
-    user.role = role;
-    user.jobTitle = user.jobTitle || DEFAULT_JOB_TITLE[role];
-    user.active = true;
-    render();
-    toast(`${user.fullName} autorizado en modo demo.`);
-  } catch (error) {
-    toast(error.message);
-  }
-}
-
-async function createUser(event) {
-  event.preventDefault();
-  const values = Object.fromEntries(new FormData(event.currentTarget));
-
-  try {
-    if (serverMode) {
-      await api("/api/team", {
-        method: "POST",
-        body: values
-      });
-      await loadServerData();
-      closeUserModal();
-      render();
-      toast("Usuario creado correctamente.");
-      return;
-    }
-
-    users.push({
-      id: `demo-user-${Date.now()}`,
-      fullName: values.fullName,
-      email: values.email,
-      role: values.role,
-      jobTitle: values.jobTitle || DEFAULT_JOB_TITLE[values.role],
-      active: true
-    });
-    closeUserModal();
-    render();
-    toast("Usuario demo creado.");
-  } catch (error) {
-    toast(error.message);
-  }
-}
-
-function openServiceDetail(serviceId) {
-  const service = services.find(item => item.id === serviceId);
-  if (!service) return;
-  state.selectedServiceId = serviceId;
-  const technician = userById(service.technicianId);
-  const engineer = userById(service.engineerId);
-  const canDocument = canDocumentService(service);
-  const canChangeStatus = canDocument;
-  const productTotal = serviceProductTotal(service);
-
-  $("#drawer-content").innerHTML = `
-    <div class="drawer-head">
-      <div>
-        <span class="eyebrow">${escapeHtml(service.id)}</span>
-        <h2>${escapeHtml(service.serviceType)}</h2>
-        <p>${escapeHtml(service.equipment)}</p>
-      </div>
-      <button class="icon-button" id="close-drawer">×</button>
-    </div>
-    <div class="detail-grid">
-      <div class="detail-box"><small>CLIENTE</small><strong>${escapeHtml(service.client)}</strong></div>
-      <div class="detail-box"><small>SEDE</small><strong>${escapeHtml(service.site || "Sin sede")}</strong></div>
-      <div class="detail-box"><small>TÉCNICO</small><strong>${escapeHtml(technician.fullName)}</strong></div>
-      <div class="detail-box"><small>INGENIERO</small><strong>${escapeHtml(engineer.fullName)}</strong></div>
-      <div class="detail-box"><small>FECHA</small><strong>${escapeHtml(formatDate(service.scheduledDate))}</strong></div>
-      <div class="detail-box"><small>ESTADO</small><strong>${escapeHtml(service.status)}</strong></div>
-      <div class="detail-box"><small>VENTA PRODUCTOS</small><strong>${escapeHtml(formatCurrency(productTotal))}</strong></div>
-    </div>
-    <section class="panel" style="margin-top:18px">
-      <div class="panel-head"><div><h2>Descripción</h2></div></div>
-      <p>${escapeHtml(service.description)}</p>
-    </section>
-    <section class="panel">
-      <div class="panel-head"><div><h2>Productos / insumos vendidos</h2><p>Materiales o insumos facturados en esta orden</p></div></div>
-      ${productsSummary(service.products || [])}
-    </section>
-    ${PHOTO_UPLOAD_ENABLED || (service.photos || []).length ? `
-      <section class="panel">
-        <div class="panel-head"><div><h2>Fotos / evidencias</h2><p>Registro fotográfico del servicio</p></div></div>
-        ${photosSummary(service.photos || [])}
-        ${PHOTO_UPLOAD_ENABLED && canDocument ? `
-          <div class="photo-upload">
-            <label class="field">
-              Subir fotos
-              <input id="photo-input" type="file" accept="image/*" multiple>
-            </label>
-            <label class="field">
-              Comentario de la evidencia
-              <input id="photo-caption" placeholder="Ej: Antes del mantenimiento, equipo corregido, repuesto instalado...">
-            </label>
-            <button class="secondary-button" id="upload-photos">Subir evidencia</button>
-          </div>
-          <p class="helper-text">Puedes subir hasta 6 fotos por vez. Cada foto debe pesar máximo 8 MB.</p>
-        ` : ""}
-      </section>
-    ` : ""}
-    <section class="panel">
-      <div class="panel-head"><div><h2>Seguimiento</h2><p>Novedades del servicio</p></div></div>
-      <div class="timeline">
-        ${service.updates.length ? service.updates.map(update => `
-          <div class="timeline-item">
-            <p>${escapeHtml(update.note)}</p>
-            <small>${escapeHtml(update.author)} · ${escapeHtml(formatDateTime(update.createdAt))}</small>
-          </div>
-        `).join("") : `<div class="empty">Sin novedades.</div>`}
-      </div>
-      <textarea class="note-box" id="note-box" placeholder="Agregar observación..."></textarea>
-      <div class="drawer-actions">
-        <button class="secondary-button" id="save-note">Guardar nota</button>
-      </div>
-      ${canChangeStatus ? `
-        <div class="status-editor">
-          <label class="field">
-            Cambiar estado de la orden
-            <select id="status-select">
-              ${STATUS_LABELS.map(status => `<option value="${escapeHtml(status)}" ${service.status === status ? "selected" : ""}>${escapeHtml(status)}</option>`).join("")}
-            </select>
-          </label>
-          <button class="primary-button" id="save-status">Guardar estado</button>
-        </div>
-      ` : ""}
-    </section>
-  `;
-
-  $("#service-drawer").classList.remove("hidden");
-  $("#close-drawer").addEventListener("click", closeDrawer);
-  $("#save-note").addEventListener("click", () => saveNote(service.id));
-  const saveStatusButton = $("#save-status");
-  if (saveStatusButton) {
-    saveStatusButton.addEventListener("click", () => changeStatus(service.id, $("#status-select").value));
-  }
-  const uploadPhotosButton = $("#upload-photos");
-  if (uploadPhotosButton) {
-    uploadPhotosButton.addEventListener("click", () => uploadPhotos(service.id));
-  }
-}
-
-function closeDrawer() {
-  $("#service-drawer").classList.add("hidden");
-  state.selectedServiceId = null;
-}
-
-async function saveNote(serviceId) {
-  const service = services.find(item => item.id === serviceId);
-  const note = $("#note-box").value.trim();
-  if (!service || !note) {
-    toast("Escribe una observación antes de guardar.");
-    return;
-  }
-
-  try {
-    if (serverMode) {
-      await api(`/api/services/${encodeURIComponent(service.id)}/updates`, {
-        method: "POST",
-        body: { note }
-      });
-      await loadServerData();
-      render();
-      openServiceDetail(serviceId);
-      toast("Observación guardada.");
-      return;
-    }
-
-    service.updates.push({ author: currentUser.fullName, note, createdAt: new Date().toISOString() });
-    saveDemoServices();
-    render();
-    openServiceDetail(serviceId);
-    toast("Observación guardada.");
-  } catch (error) {
-    toast(error.message);
-  }
-}
-
-async function uploadPhotos(serviceId) {
-  const service = services.find(item => item.id === serviceId);
-  const input = $("#photo-input");
-  const caption = $("#photo-caption")?.value.trim() || "";
-  const files = [...(input?.files || [])].slice(0, 6);
-
-  if (!service || !files.length) {
-    toast("Selecciona al menos una foto.");
-    return;
-  }
-
-  const invalidFile = files.find(file => !file.type.startsWith("image/") || file.size > 8 * 1024 * 1024);
-  if (invalidFile) {
-    toast("Solo fotos de máximo 8 MB.");
-    return;
-  }
-
-  try {
-    if (serverMode) {
-      const formData = new FormData();
-      files.forEach(file => formData.append("photos", file));
-      formData.append("caption", caption);
-
-      await api(`/api/services/${encodeURIComponent(service.id)}/photos`, {
-        method: "POST",
-        body: formData
-      });
-      await loadServerData();
-      render();
-      openServiceDetail(serviceId);
-      toast("Evidencia fotográfica subida.");
-      return;
-    }
-
-    service.photos = service.photos || [];
-    const createdAt = new Date().toISOString();
-    for (const file of files) {
-      service.photos.push({
-        id: `demo-photo-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        fileName: file.name,
-        contentType: file.type,
-        fileSize: file.size,
-        caption,
-        uploadedBy: currentUser.fullName,
-        createdAt,
-        url: await fileToDataUrl(file)
-      });
-    }
-    service.updates.push({
-      author: currentUser.fullName,
-      note: `Evidencia fotográfica agregada: ${files.length} foto(s).${caption ? ` ${caption}` : ""}`,
-      createdAt
-    });
-    saveDemoServices();
-    render();
-    openServiceDetail(serviceId);
-    toast("Evidencia fotográfica subida.");
-  } catch (error) {
-    toast(error.message);
-  }
-}
-
-async function changeStatus(serviceId, status) {
-  const service = services.find(item => item.id === serviceId);
-  if (!service) return;
-
-  try {
-    if (serverMode) {
-      await api(`/api/services/${encodeURIComponent(service.id)}/status`, {
-        method: "POST",
-        body: { status }
-      });
-      await loadServerData();
-      render();
-      openServiceDetail(serviceId);
-      toast(`Estado cambiado a ${status}.`);
-      return;
-    }
-
-    service.status = status;
-    service.updates.push({
-      author: currentUser.fullName,
-      note: `Estado cambiado a ${status}.`,
-      createdAt: new Date().toISOString()
-    });
-    saveDemoServices();
-    render();
-    openServiceDetail(serviceId);
-    toast(`Estado cambiado a ${status}.`);
-  } catch (error) {
-    toast(error.message);
-  }
-}
-
-function exportCsv() {
-  const rows = [
-    ["Orden", "Cliente", "Servicio", "Equipo", "Sede", "Técnico", "Ingeniero", "Fecha", "Prioridad", "Estado", "Productos vendidos", "Total productos", "Fotos"],
-    ...filteredServices().map(service => [
-      service.id,
-      service.client,
-      service.serviceType,
-      service.equipment,
-      service.site,
-      userById(service.technicianId).fullName,
-      userById(service.engineerId).fullName,
-      service.scheduledDate,
-      service.priority,
-      service.status,
-      (service.products || []).map(item => `${item.productName} (${item.quantity} ${item.unit})`).join(" | "),
-      serviceProductTotal(service),
-      (service.photos || []).length
-    ])
-  ];
-  const csv = rows.map(row => row.map(value => `"${String(value ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
-  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "tecnalisis-servicios.csv";
-  link.click();
-  URL.revokeObjectURL(url);
-  toast("CSV generado.");
-}
-
-$$(".nav-item").forEach(button => button.addEventListener("click", () => {
-  state.view = button.dataset.view;
-  render();
-}));
-
-$("[data-view-link='dashboard']").addEventListener("click", event => {
-  event.preventDefault();
-  state.view = "dashboard";
-  render();
-});
-
-$("#mobile-menu").addEventListener("click", () => $(".sidebar").classList.toggle("open"));
-
-$("#global-search").addEventListener("input", event => {
-  state.filters.query = event.target.value;
-  state.view = "services";
-  render();
-});
-
-$("#demo-role").addEventListener("change", event => {
-  const role = event.target.value;
-  currentUser = users.find(user => user.role === role) || users[0];
-  state.filters.technician = "Todos";
-  state.view = "dashboard";
-  render();
-  toast(`Vista demo: ${ROLE_LABEL[role]}.`);
-});
-
-$("#new-service-button").addEventListener("click", openServiceModal);
-$("#service-form").addEventListener("submit", createService);
-$("#include-product").addEventListener("change", event => {
-  $("#product-sale-fields").classList.toggle("hidden", !event.target.checked);
-  if (event.target.checked) $("#product-name").focus();
-});
-$("#user-form").addEventListener("submit", createUser);
-$("#access-form").addEventListener("submit", requestAccess);
-$$("[data-close-modal]").forEach(button => button.addEventListener("click", closeServiceModal));
-$$("[data-close-user-modal]").forEach(button => button.addEventListener("click", closeUserModal));
-$$("[data-close-access-modal]").forEach(button => button.addEventListener("click", closeAccessModal));
-$("#service-modal").addEventListener("click", event => {
-  if (event.target.id === "service-modal") closeServiceModal();
-});
-$("#user-modal").addEventListener("click", event => {
-  if (event.target.id === "user-modal") closeUserModal();
-});
-$("#access-modal").addEventListener("click", event => {
-  if (event.target.id === "access-modal") closeAccessModal();
-});
-$("#service-drawer").addEventListener("click", event => {
-  if (event.target.id === "service-drawer") closeDrawer();
-});
-$("#login-form").addEventListener("submit", signIn);
-$("#setup-form").addEventListener("submit", createFirstAdmin);
-$("#request-access-button").addEventListener("click", openAccessModal);
-$("#demo-login-button").addEventListener("click", () => enterDemo());
-$("#setup-demo-button").addEventListener("click", () => enterDemo());
-$("#logout-button").addEventListener("click", logout);
-
-document.addEventListener("keydown", event => {
-  if (event.key === "Escape") {
-    closeServiceModal();
-    closeUserModal();
-    closeAccessModal();
-    closeDrawer();
-  }
-});
-
-start();
