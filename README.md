@@ -8,12 +8,14 @@ Esta versión **no usa Supabase**. Funciona con:
 - Cloudflare Pages para publicar la app.
 - Cloudflare Pages Functions como backend.
 - Cloudflare D1 como base de datos.
-- Cloudflare R2 para guardar fotos/evidencias.
+- Cloudflare R2 opcional para guardar fotos/evidencias si decides activarlo después.
 
 ## Funciones incluidas
 
 - Login propio con sesiones.
 - Creación del primer administrador desde la app.
+- Solicitud pública de acceso desde el enlace compartido.
+- Aprobación de usuarios por el administrador antes de permitir ingreso.
 - Roles:
   - Administrador: crea usuarios, crea órdenes y cambia cualquier estado.
   - Técnico: ve sus órdenes asignadas, documenta el servicio y cambia el estado.
@@ -21,7 +23,7 @@ Esta versión **no usa Supabase**. Funciona con:
 - Creación de técnicos, ingenieros y administradores desde la pantalla Equipo.
 - Creación de órdenes de servicio.
 - Venta de productos o insumos dentro de una orden de servicio.
-- Fotos/evidencias dentro de cada orden de servicio.
+- Fotos/evidencias opcionales dentro de cada orden de servicio.
 - Seguimiento por notas.
 - Cambio de estados.
 - Filtro por técnico.
@@ -112,9 +114,13 @@ En tu proyecto de Cloudflare Pages:
 
 El nombre `DB` es importante porque las Functions usan `context.env.DB`.
 
-## 5. Crear almacén R2 para fotos/evidencias
+## 5. Crear almacén R2 para fotos/evidencias opcional
 
-Para que técnicos e ingenieros puedan subir fotos:
+Este paso es opcional. Si no quieres registrar tarjeta en Cloudflare, puedes dejarlo para después.
+
+La app funciona sin R2 para usuarios, órdenes, estados, notas y venta de productos.
+
+Si más adelante quieres que técnicos e ingenieros puedan subir fotos:
 
 1. En Cloudflare ve a **Storage & Databases**.
 2. Entra a **R2 Object Storage**.
@@ -168,12 +174,14 @@ El enlace público de la aplicación es el mismo para todos:
 
 Para compartirlo:
 
-1. El administrador crea el usuario en **Equipo**.
-2. Selecciona el rol correcto: **Técnico**, **Ingeniero** o **Administrador**.
-3. Entrega a cada persona:
-   - Enlace de la app.
-   - Correo registrado.
-   - Contraseña temporal.
+1. El administrador entrega el enlace de la app.
+2. El técnico o ingeniero hace clic en **Solicitar acceso**.
+3. La persona llena nombre, correo, rol solicitado y contraseña.
+4. La solicitud queda pendiente.
+5. El administrador entra a **Equipo**.
+6. En **Solicitudes pendientes**, revisa la persona y da clic en **Autorizar ingreso**.
+
+Sin autorización del administrador, el usuario no puede iniciar sesión.
 
 Permisos de estados:
 

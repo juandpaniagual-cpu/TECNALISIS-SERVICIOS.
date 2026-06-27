@@ -38,6 +38,7 @@
       </label>
       <div class="login-error hidden" id="login-error"></div>
       <button type="submit" class="primary-button">Ingresar</button>
+      <button type="button" class="secondary-button" id="request-access-button">Solicitar acceso</button>
       <button type="button" class="ghost-button" id="demo-login-button">Ver modo demo</button>
       <small>Acceso protegido por Cloudflare Functions + D1</small>
     </form>
@@ -242,6 +243,47 @@
       <div class="modal-footer">
         <button type="button" class="secondary-button" data-close-user-modal>Cancelar</button>
         <button type="submit" class="primary-button">Crear usuario</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="modal hidden" id="access-modal" role="dialog" aria-modal="true">
+    <form class="modal-card modal-small" id="access-form">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">SOLICITUD DE ACCESO</span>
+          <h2>Registrarme</h2>
+        </div>
+        <button type="button" class="icon-button" data-close-access-modal>×</button>
+      </div>
+      <p>Tu solicitud quedará pendiente hasta que el administrador autorice tu ingreso.</p>
+      <div class="form-grid">
+        <label class="field field-full">Nombre completo
+          <input name="fullName" placeholder="Tu nombre completo" required />
+        </label>
+        <label class="field field-full">Correo
+          <input type="email" name="email" autocomplete="email" placeholder="correo@empresa.com" required />
+        </label>
+        <label class="field">Rol solicitado
+          <select name="role" required>
+            <option value="technician">Técnico</option>
+            <option value="engineer">Ingeniero</option>
+          </select>
+        </label>
+        <label class="field">Teléfono
+          <input name="phone" placeholder="Opcional" />
+        </label>
+        <label class="field field-full">Cargo / especialidad
+          <input name="jobTitle" placeholder="Ej. Técnico de campo, Ingeniero de seguimiento..." />
+        </label>
+        <label class="field field-full">Contraseña
+          <input type="password" name="password" autocomplete="new-password" minlength="8" placeholder="Mínimo 8 caracteres" required />
+        </label>
+      </div>
+      <div class="login-error hidden" id="access-error"></div>
+      <div class="modal-footer">
+        <button type="button" class="secondary-button" data-close-access-modal>Cancelar</button>
+        <button type="submit" class="primary-button">Enviar solicitud</button>
       </div>
     </form>
   </div>

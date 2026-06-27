@@ -549,6 +549,7 @@ button { cursor: pointer; }
 .priority-high { color: #b42338; background: #fff0f3; }
 .priority-medium { color: #a56700; background: #fff7df; }
 .priority-low { color: #087c6b; background: #e7fbf7; }
+.role-pill.pending { color: #8a4b00; background: #fff4d8; }
 
 .filter-bar {
   display: grid;
@@ -612,6 +613,10 @@ button { cursor: pointer; }
   border-radius: var(--radius);
   background: #fff;
 }
+.team-card.pending-card {
+  border-color: #ffe1a3;
+  background: linear-gradient(180deg, #fffaf0, #fff);
+}
 .team-top {
   display: flex;
   align-items: center;
@@ -634,6 +639,11 @@ button { cursor: pointer; }
   font-size: 12px;
 }
 .team-stats strong { display: block; color: var(--ink); font-size: 18px; }
+.card-note {
+  margin: 10px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
 
 .bar-list { display: grid; gap: 12px; }
 .bar-item {

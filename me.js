@@ -1,31 +1,41 @@
-import { cleanEmail, createSession, getDB, hashPassword, json, publicUser, readJson, requireFields, sessionCookie } from "../_lib.js";
+import { cleanEmail, createSession, getDB, hashPassword, json, nowIso, randomHex, readJson, requireFields, sessionCookie } from "../_lib.js";
 
 export async function onRequestPost(context) {
   try {
     const db = getDB(context);
+    const count = await db.prepare("select count(*) as total from users").first();
+
+    if (Number(count?.total || 0) > 0) {
+      return json({ error: "La configuración inicial ya fue realizada." }, 409);
+    }
+
     const body = await readJson(context.request);
-    const missing = requireFields(body, ["email", "password"]);
+    const missing = requireFields(body, ["fullName", "email", "password"]);
     if (missing) return json({ error: missing }, 400);
+    if (String(body.password).length < 8) return json({ error: "La contraseña debe tener mínimo 8 caracteres." }, 400);
 
+    const id = crypto.randomUUID();
+    const salt = randomHex(16);
+    const passwordHash = await hashPassword(body.password, salt, context.env);
     const email = cleanEmail(body.email);
-    const user = await db.prepare(`
-      select *
-      from users
-      where lower(email) = ?
-        and active = 1
-    `).bind(email).first();
 
-    if (!user) {
-      return json({ error: "Correo o contraseña incorrectos." }, 401);
-    }
+    await db.prepare(`
+      insert into users (id, full_name, email, password_salt, password_hash, role, job_title, active, created_at, updated_at)
+      values (?, ?, ?, ?, ?, 'admin', 'Administrador', 1, ?, ?)
+    `).bind(id, body.fullName.trim(), email, salt, passwordHash, nowIso(), nowIso()).run();
 
-    const attemptedHash = await hashPassword(body.password, user.password_salt, context.env);
-    if (attemptedHash !== user.password_hash) {
-      return json({ error: "Correo o contraseña incorrectos." }, 401);
-    }
-
-    const token = await createSession(db, user.id);
-    return json({ token, user: publicUser(user) }, 200, {
+    const token = await createSession(db, id);
+    return json({
+      token,
+      user: {
+        id,
+        fullName: body.fullName.trim(),
+        email,
+        role: "admin",
+        jobTitle: "Administrador",
+        active: true
+      }
+    }, 200, {
       "Set-Cookie": sessionCookie(token)
     });
   } catch (error) {

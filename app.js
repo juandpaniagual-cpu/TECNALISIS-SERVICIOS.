@@ -15,6 +15,7 @@ const DEFAULT_JOB_TITLE = {
 
 const STATUS_LABELS = ["Pendiente", "En progreso", "En revisión", "Completado"];
 const PRIORITY_LABELS = ["Alta", "Media", "Baja"];
+const PHOTO_UPLOAD_ENABLED = false;
 
 const DEMO_USERS = [
   { id: "demo-admin", fullName: "Juan Paniagua", email: "juandpaniagual@gmail.com", role: "admin", jobTitle: "Administrador", active: true },
@@ -784,10 +785,46 @@ function renderReports() {
 
 function renderTeam() {
   const canCreate = currentUser.role === "admin";
+  const pendingUsers = users.filter(user => user.active === false);
+  const activeUsers = users.filter(user => user.active !== false);
   $("#content").innerHTML = `
-    ${pageHead("Equipo", "Usuarios activos y carga de trabajo", canCreate ? `<button class="primary-button" id="new-user-button">+ Nuevo usuario</button>` : "")}
+    ${pageHead("Equipo", "Usuarios activos, solicitudes y carga de trabajo", canCreate ? `<button class="primary-button" id="new-user-button">+ Nuevo usuario</button>` : "")}
+    ${canCreate && pendingUsers.length ? `
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Solicitudes pendientes</h2>
+            <p>Personas registradas desde el enlace público que esperan autorización</p>
+          </div>
+        </div>
+        <div class="team-grid">
+          ${pendingUsers.map(user => `
+            <article class="team-card pending-card">
+              <div class="team-top">
+                ${avatar(user)}
+                <div>
+                  <h3>${escapeHtml(user.fullName)}</h3>
+                  <p>${escapeHtml(user.email || user.phone || "Sin correo")}</p>
+                </div>
+              </div>
+              <span class="role-pill pending">Pendiente · ${escapeHtml(ROLE_LABEL[user.role] || user.role)}</span>
+              ${user.phone ? `<p class="card-note">Tel: ${escapeHtml(user.phone)}</p>` : ""}
+              <label class="field">
+                Autorizar como
+                <select data-approve-role="${escapeHtml(user.id)}">
+                  <option value="technician" ${user.role === "technician" ? "selected" : ""}>Técnico</option>
+                  <option value="engineer" ${user.role === "engineer" ? "selected" : ""}>Ingeniero</option>
+                  <option value="admin" ${user.role === "admin" ? "selected" : ""}>Administrador</option>
+                </select>
+              </label>
+              <button class="primary-button" data-approve-user="${escapeHtml(user.id)}">Autorizar ingreso</button>
+            </article>
+          `).join("")}
+        </div>
+      </section>
+    ` : ""}
     <div class="team-grid">
-      ${users.map(user => {
+      ${activeUsers.map(user => {
         const assigned = services.filter(service => service.technicianId === user.id || service.engineerId === user.id);
         const completed = assigned.filter(service => service.status === "Completado").length;
         return `
@@ -810,7 +847,12 @@ function renderTeam() {
     </div>
   `;
 
-  if (canCreate) $("#new-user-button").addEventListener("click", openUserModal);
+  if (canCreate) {
+    $("#new-user-button").addEventListener("click", openUserModal);
+    $$("[data-approve-user]").forEach(button => {
+      button.addEventListener("click", () => approveUser(button.dataset.approveUser));
+    });
+  }
 }
 
 function renderSettings() {
@@ -821,7 +863,7 @@ function renderSettings() {
       <div class="panel-head">
         <div>
           <h2>Enlace para técnicos e ingenieros</h2>
-          <p>Comparte este enlace con el usuario y contraseña creados en Equipo</p>
+          <p>Comparte este enlace para que soliciten acceso o ingresen si ya fueron autorizados</p>
         </div>
         <button class="primary-button" id="copy-share-link">Copiar enlace</button>
       </div>
@@ -836,7 +878,7 @@ function renderSettings() {
       <div class="settings-list">
         <div class="setting-row"><strong>Proveedor</strong><code>Cloudflare D1</code></div>
         <div class="setting-row"><strong>Binding requerido</strong><code>DB</code></div>
-        <div class="setting-row"><strong>Fotos / evidencias</strong><code>Cloudflare R2 · EVIDENCE_BUCKET</code></div>
+        <div class="setting-row"><strong>Fotos / evidencias</strong><code>Opcional · Cloudflare R2</code></div>
         <div class="setting-row"><strong>Modo actual</strong><code>${serverMode ? "Cloudflare D1 real" : "Demo local"}</code></div>
       </div>
     </section>
@@ -849,7 +891,7 @@ function renderSettings() {
         <li>Build command: <strong>exit 0</strong>.</li>
         <li>Output directory: <strong>.</strong>.</li>
         <li>En Cloudflare, vincula una base D1 con binding <strong>DB</strong>.</li>
-        <li>Para fotos, crea un bucket R2 y vincúlalo con binding <strong>EVIDENCE_BUCKET</strong>.</li>
+        <li>Opcional: para fotos, crea un bucket R2 y vincúlalo con binding <strong>EVIDENCE_BUCKET</strong>.</li>
       </ol>
     </section>
   `;
@@ -990,6 +1032,79 @@ function closeUserModal() {
   $("#user-modal").classList.add("hidden");
 }
 
+function openAccessModal() {
+  $("#access-form").reset();
+  $("#access-error").classList.add("hidden");
+  $("#access-modal").classList.remove("hidden");
+}
+
+function closeAccessModal() {
+  $("#access-modal").classList.add("hidden");
+}
+
+async function requestAccess(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = Object.fromEntries(new FormData(form));
+  const button = form.querySelector("button[type='submit']");
+  button.disabled = true;
+  button.textContent = "Enviando...";
+  $("#access-error").classList.add("hidden");
+
+  try {
+    if (serverMode || !token()) {
+      const result = await api("/api/register", {
+        method: "POST",
+        body: values
+      });
+      closeAccessModal();
+      showLogin(result.message || "Solicitud enviada. Espera aprobación del administrador.");
+      toast("Solicitud enviada al administrador.");
+      return;
+    }
+
+    toast("En modo demo no se envían solicitudes reales.");
+    closeAccessModal();
+  } catch (error) {
+    $("#access-error").textContent = error.message;
+    $("#access-error").classList.remove("hidden");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Enviar solicitud";
+  }
+}
+
+async function approveUser(userId) {
+  const user = users.find(item => item.id === userId);
+  const roleSelect = $$("[data-approve-role]").find(select => select.dataset.approveRole === userId);
+  const role = roleSelect?.value || user?.role || "technician";
+  if (!user) return;
+
+  try {
+    if (serverMode) {
+      await api(`/api/team/${encodeURIComponent(userId)}/approve`, {
+        method: "POST",
+        body: {
+          role,
+          jobTitle: user.jobTitle || DEFAULT_JOB_TITLE[role]
+        }
+      });
+      await loadServerData();
+      render();
+      toast(`${user.fullName} ya puede ingresar a la app.`);
+      return;
+    }
+
+    user.role = role;
+    user.jobTitle = user.jobTitle || DEFAULT_JOB_TITLE[role];
+    user.active = true;
+    render();
+    toast(`${user.fullName} autorizado en modo demo.`);
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
 async function createUser(event) {
   event.preventDefault();
   const values = Object.fromEntries(new FormData(event.currentTarget));
@@ -1059,24 +1174,26 @@ function openServiceDetail(serviceId) {
       <div class="panel-head"><div><h2>Productos / insumos vendidos</h2><p>Materiales o insumos facturados en esta orden</p></div></div>
       ${productsSummary(service.products || [])}
     </section>
-    <section class="panel">
-      <div class="panel-head"><div><h2>Fotos / evidencias</h2><p>Registro fotográfico del servicio</p></div></div>
-      ${photosSummary(service.photos || [])}
-      ${canDocument ? `
-        <div class="photo-upload">
-          <label class="field">
-            Subir fotos
-            <input id="photo-input" type="file" accept="image/*" multiple>
-          </label>
-          <label class="field">
-            Comentario de la evidencia
-            <input id="photo-caption" placeholder="Ej: Antes del mantenimiento, equipo corregido, repuesto instalado...">
-          </label>
-          <button class="secondary-button" id="upload-photos">Subir evidencia</button>
-        </div>
-        <p class="helper-text">Puedes subir hasta 6 fotos por vez. Cada foto debe pesar máximo 8 MB.</p>
-      ` : ""}
-    </section>
+    ${PHOTO_UPLOAD_ENABLED || (service.photos || []).length ? `
+      <section class="panel">
+        <div class="panel-head"><div><h2>Fotos / evidencias</h2><p>Registro fotográfico del servicio</p></div></div>
+        ${photosSummary(service.photos || [])}
+        ${PHOTO_UPLOAD_ENABLED && canDocument ? `
+          <div class="photo-upload">
+            <label class="field">
+              Subir fotos
+              <input id="photo-input" type="file" accept="image/*" multiple>
+            </label>
+            <label class="field">
+              Comentario de la evidencia
+              <input id="photo-caption" placeholder="Ej: Antes del mantenimiento, equipo corregido, repuesto instalado...">
+            </label>
+            <button class="secondary-button" id="upload-photos">Subir evidencia</button>
+          </div>
+          <p class="helper-text">Puedes subir hasta 6 fotos por vez. Cada foto debe pesar máximo 8 MB.</p>
+        ` : ""}
+      </section>
+    ` : ""}
     <section class="panel">
       <div class="panel-head"><div><h2>Seguimiento</h2><p>Novedades del servicio</p></div></div>
       <div class="timeline">
@@ -1313,19 +1430,25 @@ $("#include-product").addEventListener("change", event => {
   if (event.target.checked) $("#product-name").focus();
 });
 $("#user-form").addEventListener("submit", createUser);
+$("#access-form").addEventListener("submit", requestAccess);
 $$("[data-close-modal]").forEach(button => button.addEventListener("click", closeServiceModal));
 $$("[data-close-user-modal]").forEach(button => button.addEventListener("click", closeUserModal));
+$$("[data-close-access-modal]").forEach(button => button.addEventListener("click", closeAccessModal));
 $("#service-modal").addEventListener("click", event => {
   if (event.target.id === "service-modal") closeServiceModal();
 });
 $("#user-modal").addEventListener("click", event => {
   if (event.target.id === "user-modal") closeUserModal();
 });
+$("#access-modal").addEventListener("click", event => {
+  if (event.target.id === "access-modal") closeAccessModal();
+});
 $("#service-drawer").addEventListener("click", event => {
   if (event.target.id === "service-drawer") closeDrawer();
 });
 $("#login-form").addEventListener("submit", signIn);
 $("#setup-form").addEventListener("submit", createFirstAdmin);
+$("#request-access-button").addEventListener("click", openAccessModal);
 $("#demo-login-button").addEventListener("click", () => enterDemo());
 $("#setup-demo-button").addEventListener("click", () => enterDemo());
 $("#logout-button").addEventListener("click", logout);
@@ -1334,6 +1457,7 @@ document.addEventListener("keydown", event => {
   if (event.key === "Escape") {
     closeServiceModal();
     closeUserModal();
+    closeAccessModal();
     closeDrawer();
   }
 });
