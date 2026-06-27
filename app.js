@@ -38,6 +38,9 @@ const DEMO_SERVICES = [
     status: "En progreso",
     description: "Limpieza de serpentines, medición de presiones y revisión eléctrica.",
     createdAt: "2026-06-25T08:20:00.000Z",
+    products: [
+      { productName: "Filtro HVAC", quantity: 2, unit: "unidad", unitPrice: 85000, totalPrice: 170000, notes: "Filtros de reposición instalados.", createdAt: "2026-06-27T09:10:00.000Z" }
+    ],
     updates: [
       { author: "Juan Paniagua", note: "Orden creada y asignada a Carlos Ramírez.", createdAt: "2026-06-25T08:20:00.000Z" },
       { author: "Carlos Ramírez", note: "Servicio iniciado. Se detecta filtro con saturación alta.", createdAt: "2026-06-27T09:10:00.000Z" }
@@ -56,6 +59,7 @@ const DEMO_SERVICES = [
     status: "Pendiente",
     description: "Equipo presenta vibración inusual y aumento de temperatura.",
     createdAt: "2026-06-26T11:30:00.000Z",
+    products: [],
     updates: [
       { author: "Andrés Silva", note: "Se solicita atención prioritaria por criticidad del activo.", createdAt: "2026-06-26T11:30:00.000Z" }
     ]
@@ -73,6 +77,7 @@ const DEMO_SERVICES = [
     status: "En revisión",
     description: "Inspección trimestral de sistemas de seguridad y tracción.",
     createdAt: "2026-06-24T14:00:00.000Z",
+    products: [],
     updates: [
       { author: "Carlos Ramírez", note: "Inspección terminada. Informe técnico listo para revisión.", createdAt: "2026-06-26T16:40:00.000Z" }
     ]
@@ -90,6 +95,9 @@ const DEMO_SERVICES = [
     status: "Completado",
     description: "Mantenimiento semestral de caldera y prueba de emisiones.",
     createdAt: "2026-06-22T10:10:00.000Z",
+    products: [
+      { productName: "Kit mantenimiento caldera", quantity: 1, unit: "kit", unitPrice: 320000, totalPrice: 320000, notes: "Incluye empaques y consumibles.", createdAt: "2026-06-24T13:50:00.000Z" }
+    ],
     updates: [
       { author: "María Torres", note: "Servicio finalizado sin novedades críticas.", createdAt: "2026-06-24T13:50:00.000Z" },
       { author: "Andrés Silva", note: "Servicio aprobado por ingeniería.", createdAt: "2026-06-24T15:20:00.000Z" }
@@ -207,6 +215,100 @@ function formatDateTime(value) {
   }).format(new Date(value)).replace(".", "");
 }
 
+function formatCurrency(value) {
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0
+  }).format(Number(value || 0));
+}
+
+function serviceProductTotal(service) {
+  return (service.products || []).reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
+}
+
+function productFromValues(values) {
+  if (!values.includeProduct) return [];
+  const productName = String(values.productName || "").trim();
+  if (!productName) return [];
+  const quantity = Math.max(Number(values.productQuantity || 1), 0) || 1;
+  const unitPrice = Math.max(Number(values.productUnitPrice || 0), 0);
+  return [{
+    productName,
+    quantity,
+    unit: String(values.productUnit || "unidad").trim() || "unidad",
+    unitPrice,
+    totalPrice: quantity * unitPrice,
+    notes: String(values.productNotes || "").trim(),
+    createdAt: new Date().toISOString()
+  }];
+}
+
+function productsSummary(products = []) {
+  if (!products.length) {
+    return `<div class="empty">Este servicio no tiene productos o insumos vendidos.</div>`;
+  }
+  const total = products.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
+  return `
+    <div class="product-summary">
+      ${products.map(item => `
+        <div class="product-item">
+          <div>
+            <strong>${escapeHtml(item.productName)}</strong>
+            <small>${escapeHtml(item.quantity)} ${escapeHtml(item.unit || "unidad")} × ${escapeHtml(formatCurrency(item.unitPrice))}</small>
+            ${item.notes ? `<small>${escapeHtml(item.notes)}</small>` : ""}
+          </div>
+          <strong>${escapeHtml(formatCurrency(item.totalPrice))}</strong>
+        </div>
+      `).join("")}
+      <div class="product-total">
+        <span>Total productos / insumos</span>
+        <span>${escapeHtml(formatCurrency(total))}</span>
+      </div>
+    </div>
+  `;
+}
+
+function formatFileSize(bytes) {
+  const value = Number(bytes || 0);
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function photosSummary(photos = []) {
+  if (!photos.length) {
+    return `<div class="empty compact">Aún no hay fotos de evidencia en esta orden.</div>`;
+  }
+
+  return `
+    <div class="photo-grid">
+      ${photos.map(photo => `
+        <a class="photo-card" href="${escapeHtml(photo.url)}" target="_blank" rel="noopener">
+          <img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.fileName || "Evidencia del servicio")}" loading="lazy">
+          <span>${escapeHtml(photo.caption || photo.fileName || "Evidencia")}</span>
+          <small>${escapeHtml(photo.uploadedBy || "Usuario")} · ${escapeHtml(formatDateTime(photo.createdAt))} · ${escapeHtml(formatFileSize(photo.fileSize))}</small>
+        </a>
+      `).join("")}
+    </div>
+  `;
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function canDocumentService(service) {
+  return currentUser.role === "admin" ||
+    currentUser.role === "engineer" ||
+    (currentUser.role === "technician" && service.technicianId === currentUser.id);
+}
+
 function userById(id) {
   return users.find(user => user.id === id) || {
     id: "",
@@ -278,6 +380,29 @@ function toast(message) {
   item.textContent = message;
   $("#toast-stack").appendChild(item);
   setTimeout(() => item.remove(), 3800);
+}
+
+function getShareUrl() {
+  const host = window.location.hostname;
+  if (host.endsWith(".pages.dev")) {
+    const parts = host.split(".");
+    if (parts.length > 3) {
+      return `${window.location.protocol}//${parts.slice(-3).join(".")}`;
+    }
+  }
+  return window.location.origin;
+}
+
+async function copyShareLink() {
+  const url = getShareUrl();
+  try {
+    await navigator.clipboard.writeText(url);
+    toast("Enlace copiado para compartir.");
+  } catch (error) {
+    const input = $("#share-link-input");
+    if (input) input.select();
+    toast("Selecciona el enlace y cópialo manualmente.");
+  }
 }
 
 function showOnly(section) {
@@ -689,13 +814,29 @@ function renderTeam() {
 }
 
 function renderSettings() {
+  const shareUrl = getShareUrl();
   $("#content").innerHTML = `
     ${pageHead("Configuración", "Datos para GitHub, Cloudflare Pages Functions y D1")}
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Enlace para técnicos e ingenieros</h2>
+          <p>Comparte este enlace con el usuario y contraseña creados en Equipo</p>
+        </div>
+        <button class="primary-button" id="copy-share-link">Copiar enlace</button>
+      </div>
+      <label class="field">
+        Enlace público de acceso
+        <input id="share-link-input" value="${escapeHtml(shareUrl)}" readonly>
+      </label>
+      <p class="helper-text">No compartas enlaces de vista previa que empiezan con códigos largos. Este enlace principal queda estable para tu equipo.</p>
+    </section>
     <section class="panel">
       <div class="panel-head"><div><h2>Base de datos</h2><p>La aplicación ya no usa Supabase</p></div></div>
       <div class="settings-list">
         <div class="setting-row"><strong>Proveedor</strong><code>Cloudflare D1</code></div>
         <div class="setting-row"><strong>Binding requerido</strong><code>DB</code></div>
+        <div class="setting-row"><strong>Fotos / evidencias</strong><code>Cloudflare R2 · EVIDENCE_BUCKET</code></div>
         <div class="setting-row"><strong>Modo actual</strong><code>${serverMode ? "Cloudflare D1 real" : "Demo local"}</code></div>
       </div>
     </section>
@@ -708,9 +849,12 @@ function renderSettings() {
         <li>Build command: <strong>exit 0</strong>.</li>
         <li>Output directory: <strong>.</strong>.</li>
         <li>En Cloudflare, vincula una base D1 con binding <strong>DB</strong>.</li>
+        <li>Para fotos, crea un bucket R2 y vincúlalo con binding <strong>EVIDENCE_BUCKET</strong>.</li>
       </ol>
     </section>
   `;
+
+  $("#copy-share-link").addEventListener("click", copyShareLink);
 }
 
 function render() {
@@ -772,6 +916,7 @@ function openServiceModal() {
     .map(user => `<option value="${escapeHtml(user.id)}">${escapeHtml(user.fullName)}</option>`)
     .join("");
   $("#service-form").reset();
+  $("#product-sale-fields").classList.add("hidden");
   $("#service-modal").classList.remove("hidden");
 }
 
@@ -790,6 +935,9 @@ async function createService(event) {
   }
 
   try {
+    const products = productFromValues(values);
+    values.products = products;
+
     if (serverMode) {
       const created = await api("/api/services", {
         method: "POST",
@@ -816,6 +964,7 @@ async function createService(event) {
       status: "Pendiente",
       description: values.description,
       createdAt: new Date().toISOString(),
+      products,
       updates: [
         { author: currentUser.fullName, note: "Orden creada.", createdAt: new Date().toISOString() }
       ]
@@ -880,9 +1029,9 @@ function openServiceDetail(serviceId) {
   state.selectedServiceId = serviceId;
   const technician = userById(service.technicianId);
   const engineer = userById(service.engineerId);
-  const canStart = currentUser.role === "technician" && service.technicianId === currentUser.id && service.status === "Pendiente";
-  const canReview = currentUser.role === "technician" && service.technicianId === currentUser.id && service.status === "En progreso";
-  const canApprove = ["admin", "engineer"].includes(currentUser.role) && service.status === "En revisión";
+  const canDocument = canDocumentService(service);
+  const canChangeStatus = canDocument;
+  const productTotal = serviceProductTotal(service);
 
   $("#drawer-content").innerHTML = `
     <div class="drawer-head">
@@ -900,10 +1049,33 @@ function openServiceDetail(serviceId) {
       <div class="detail-box"><small>INGENIERO</small><strong>${escapeHtml(engineer.fullName)}</strong></div>
       <div class="detail-box"><small>FECHA</small><strong>${escapeHtml(formatDate(service.scheduledDate))}</strong></div>
       <div class="detail-box"><small>ESTADO</small><strong>${escapeHtml(service.status)}</strong></div>
+      <div class="detail-box"><small>VENTA PRODUCTOS</small><strong>${escapeHtml(formatCurrency(productTotal))}</strong></div>
     </div>
     <section class="panel" style="margin-top:18px">
       <div class="panel-head"><div><h2>Descripción</h2></div></div>
       <p>${escapeHtml(service.description)}</p>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><div><h2>Productos / insumos vendidos</h2><p>Materiales o insumos facturados en esta orden</p></div></div>
+      ${productsSummary(service.products || [])}
+    </section>
+    <section class="panel">
+      <div class="panel-head"><div><h2>Fotos / evidencias</h2><p>Registro fotográfico del servicio</p></div></div>
+      ${photosSummary(service.photos || [])}
+      ${canDocument ? `
+        <div class="photo-upload">
+          <label class="field">
+            Subir fotos
+            <input id="photo-input" type="file" accept="image/*" multiple>
+          </label>
+          <label class="field">
+            Comentario de la evidencia
+            <input id="photo-caption" placeholder="Ej: Antes del mantenimiento, equipo corregido, repuesto instalado...">
+          </label>
+          <button class="secondary-button" id="upload-photos">Subir evidencia</button>
+        </div>
+        <p class="helper-text">Puedes subir hasta 6 fotos por vez. Cada foto debe pesar máximo 8 MB.</p>
+      ` : ""}
     </section>
     <section class="panel">
       <div class="panel-head"><div><h2>Seguimiento</h2><p>Novedades del servicio</p></div></div>
@@ -918,17 +1090,32 @@ function openServiceDetail(serviceId) {
       <textarea class="note-box" id="note-box" placeholder="Agregar observación..."></textarea>
       <div class="drawer-actions">
         <button class="secondary-button" id="save-note">Guardar nota</button>
-        ${canStart ? `<button class="primary-button" data-next-status="En progreso">Iniciar servicio</button>` : ""}
-        ${canReview ? `<button class="primary-button" data-next-status="En revisión">Enviar a revisión</button>` : ""}
-        ${canApprove ? `<button class="primary-button" data-next-status="Completado">Aprobar servicio</button>` : ""}
       </div>
+      ${canChangeStatus ? `
+        <div class="status-editor">
+          <label class="field">
+            Cambiar estado de la orden
+            <select id="status-select">
+              ${STATUS_LABELS.map(status => `<option value="${escapeHtml(status)}" ${service.status === status ? "selected" : ""}>${escapeHtml(status)}</option>`).join("")}
+            </select>
+          </label>
+          <button class="primary-button" id="save-status">Guardar estado</button>
+        </div>
+      ` : ""}
     </section>
   `;
 
   $("#service-drawer").classList.remove("hidden");
   $("#close-drawer").addEventListener("click", closeDrawer);
   $("#save-note").addEventListener("click", () => saveNote(service.id));
-  $$("[data-next-status]").forEach(button => button.addEventListener("click", () => changeStatus(service.id, button.dataset.nextStatus)));
+  const saveStatusButton = $("#save-status");
+  if (saveStatusButton) {
+    saveStatusButton.addEventListener("click", () => changeStatus(service.id, $("#status-select").value));
+  }
+  const uploadPhotosButton = $("#upload-photos");
+  if (uploadPhotosButton) {
+    uploadPhotosButton.addEventListener("click", () => uploadPhotos(service.id));
+  }
 }
 
 function closeDrawer() {
@@ -962,6 +1149,68 @@ async function saveNote(serviceId) {
     render();
     openServiceDetail(serviceId);
     toast("Observación guardada.");
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+async function uploadPhotos(serviceId) {
+  const service = services.find(item => item.id === serviceId);
+  const input = $("#photo-input");
+  const caption = $("#photo-caption")?.value.trim() || "";
+  const files = [...(input?.files || [])].slice(0, 6);
+
+  if (!service || !files.length) {
+    toast("Selecciona al menos una foto.");
+    return;
+  }
+
+  const invalidFile = files.find(file => !file.type.startsWith("image/") || file.size > 8 * 1024 * 1024);
+  if (invalidFile) {
+    toast("Solo fotos de máximo 8 MB.");
+    return;
+  }
+
+  try {
+    if (serverMode) {
+      const formData = new FormData();
+      files.forEach(file => formData.append("photos", file));
+      formData.append("caption", caption);
+
+      await api(`/api/services/${encodeURIComponent(service.id)}/photos`, {
+        method: "POST",
+        body: formData
+      });
+      await loadServerData();
+      render();
+      openServiceDetail(serviceId);
+      toast("Evidencia fotográfica subida.");
+      return;
+    }
+
+    service.photos = service.photos || [];
+    const createdAt = new Date().toISOString();
+    for (const file of files) {
+      service.photos.push({
+        id: `demo-photo-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        fileName: file.name,
+        contentType: file.type,
+        fileSize: file.size,
+        caption,
+        uploadedBy: currentUser.fullName,
+        createdAt,
+        url: await fileToDataUrl(file)
+      });
+    }
+    service.updates.push({
+      author: currentUser.fullName,
+      note: `Evidencia fotográfica agregada: ${files.length} foto(s).${caption ? ` ${caption}` : ""}`,
+      createdAt
+    });
+    saveDemoServices();
+    render();
+    openServiceDetail(serviceId);
+    toast("Evidencia fotográfica subida.");
   } catch (error) {
     toast(error.message);
   }
@@ -1001,7 +1250,7 @@ async function changeStatus(serviceId, status) {
 
 function exportCsv() {
   const rows = [
-    ["Orden", "Cliente", "Servicio", "Equipo", "Sede", "Técnico", "Ingeniero", "Fecha", "Prioridad", "Estado"],
+    ["Orden", "Cliente", "Servicio", "Equipo", "Sede", "Técnico", "Ingeniero", "Fecha", "Prioridad", "Estado", "Productos vendidos", "Total productos", "Fotos"],
     ...filteredServices().map(service => [
       service.id,
       service.client,
@@ -1012,7 +1261,10 @@ function exportCsv() {
       userById(service.engineerId).fullName,
       service.scheduledDate,
       service.priority,
-      service.status
+      service.status,
+      (service.products || []).map(item => `${item.productName} (${item.quantity} ${item.unit})`).join(" | "),
+      serviceProductTotal(service),
+      (service.photos || []).length
     ])
   ];
   const csv = rows.map(row => row.map(value => `"${String(value ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
@@ -1056,6 +1308,10 @@ $("#demo-role").addEventListener("change", event => {
 
 $("#new-service-button").addEventListener("click", openServiceModal);
 $("#service-form").addEventListener("submit", createService);
+$("#include-product").addEventListener("change", event => {
+  $("#product-sale-fields").classList.toggle("hidden", !event.target.checked);
+  if (event.target.checked) $("#product-name").focus();
+});
 $("#user-form").addEventListener("submit", createUser);
 $$("[data-close-modal]").forEach(button => button.addEventListener("click", closeServiceModal));
 $$("[data-close-user-modal]").forEach(button => button.addEventListener("click", closeUserModal));

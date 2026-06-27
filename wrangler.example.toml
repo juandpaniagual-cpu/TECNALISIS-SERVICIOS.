@@ -9,3 +9,7 @@ pages_build_output_dir = "."
 # binding = "DB"
 # database_name = "tecnalisis-servicios-db"
 # database_id = "REEMPLAZA_CON_EL_ID_DE_TU_D1"
+#
+# [[r2_buckets]]
+# binding = "EVIDENCE_BUCKET"
+# bucket_name = "tecnalisis-servicios-evidencias"

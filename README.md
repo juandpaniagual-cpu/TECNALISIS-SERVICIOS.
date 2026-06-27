@@ -8,17 +8,20 @@ Esta versión **no usa Supabase**. Funciona con:
 - Cloudflare Pages para publicar la app.
 - Cloudflare Pages Functions como backend.
 - Cloudflare D1 como base de datos.
+- Cloudflare R2 para guardar fotos/evidencias.
 
 ## Funciones incluidas
 
 - Login propio con sesiones.
 - Creación del primer administrador desde la app.
 - Roles:
-  - Administrador: crea usuarios y órdenes.
-  - Técnico: ve sus órdenes, inicia servicio y envía a revisión.
-  - Ingeniero: revisa y aprueba servicios.
+  - Administrador: crea usuarios, crea órdenes y cambia cualquier estado.
+  - Técnico: ve sus órdenes asignadas, documenta el servicio y cambia el estado.
+  - Ingeniero: hace seguimiento, documenta y cambia el estado de las órdenes.
 - Creación de técnicos, ingenieros y administradores desde la pantalla Equipo.
 - Creación de órdenes de servicio.
+- Venta de productos o insumos dentro de una orden de servicio.
+- Fotos/evidencias dentro de cada orden de servicio.
 - Seguimiento por notas.
 - Cambio de estados.
 - Filtro por técnico.
@@ -33,6 +36,8 @@ Esta versión **no usa Supabase**. Funciona con:
 - `app.js`: lógica del frontend.
 - `functions/`: backend de Cloudflare Pages Functions.
 - `cloudflare-d1-schema.sql`: tablas para Cloudflare D1.
+- `cloudflare-d1-products-migration.sql`: migración para agregar venta de productos/insumos en una base ya creada.
+- `cloudflare-d1-photos-migration.sql`: migración para agregar fotos/evidencias en una base ya creada.
 - `_redirects`: soporte para app estática.
 - `_headers`: cabeceras básicas de seguridad.
 
@@ -84,6 +89,8 @@ Esto crea las tablas:
 - `sessions`
 - `service_orders`
 - `service_updates`
+- `service_products`
+- `service_photos`
 
 ## 4. Vincular D1 con Cloudflare Pages
 
@@ -105,7 +112,32 @@ En tu proyecto de Cloudflare Pages:
 
 El nombre `DB` es importante porque las Functions usan `context.env.DB`.
 
-## 5. Crear el primer administrador
+## 5. Crear almacén R2 para fotos/evidencias
+
+Para que técnicos e ingenieros puedan subir fotos:
+
+1. En Cloudflare ve a **Storage & Databases**.
+2. Entra a **R2 Object Storage**.
+3. Crea un bucket, por ejemplo:
+
+   `tecnalisis-servicios-evidencias`
+
+4. Vuelve al proyecto **Cloudflare Pages** de la app.
+5. Ve a **Settings** > **Bindings**.
+6. Agrega un binding tipo **R2 bucket**.
+7. Nombre del binding:
+
+   `EVIDENCE_BUCKET`
+
+8. Selecciona el bucket:
+
+   `tecnalisis-servicios-evidencias`
+
+9. Guarda y vuelve a desplegar si Cloudflare lo pide.
+
+El nombre `EVIDENCE_BUCKET` es importante porque las Functions lo usan para guardar y mostrar las fotos.
+
+## 6. Crear el primer administrador
 
 Cuando abras la URL publicada por Cloudflare, si la base D1 está vacía, la app mostrará:
 
@@ -119,7 +151,7 @@ Ingresa:
 
 Ese será el primer usuario administrador.
 
-## 6. Crear técnicos e ingenieros
+## 7. Crear técnicos e ingenieros
 
 Después de entrar como administrador:
 
@@ -128,24 +160,80 @@ Después de entrar como administrador:
 3. Crea técnicos e ingenieros.
 4. Usa contraseñas temporales para que cada persona entre.
 
-## 7. Crear servicios
+## 8. Enlace para compartir con técnicos e ingenieros
+
+El enlace público de la aplicación es el mismo para todos:
+
+`https://tecnalisis-servicios-app.pages.dev`
+
+Para compartirlo:
+
+1. El administrador crea el usuario en **Equipo**.
+2. Selecciona el rol correcto: **Técnico**, **Ingeniero** o **Administrador**.
+3. Entrega a cada persona:
+   - Enlace de la app.
+   - Correo registrado.
+   - Contraseña temporal.
+
+Permisos de estados:
+
+- Administrador: puede cambiar el estado de cualquier orden.
+- Ingeniero: puede cambiar el estado de las órdenes y hacer seguimiento.
+- Técnico: puede cambiar el estado de las órdenes asignadas a él y documentar el servicio.
+
+Además, dentro de cada orden pueden agregar notas y subir fotos/evidencias según sus permisos.
+
+## 9. Crear servicios
 
 Como administrador o ingeniero:
 
 1. Clic en **Nuevo servicio**.
 2. Selecciona técnico asignado.
 3. Selecciona ingeniero de seguimiento.
-4. Guarda.
+4. Si el servicio incluye venta de producto o insumo, marca **Este servicio incluye venta de producto o insumo**.
+5. Registra producto, cantidad, unidad y precio unitario.
+6. Guarda.
 
 Los técnicos solo verán los servicios asignados a ellos.
 
-## 8. Si aparece error de conexión
+## 10. Agregar venta de productos a una base ya creada
+
+Si la base D1 ya existía antes de esta función, ejecuta en **D1 > Console**:
+
+```sql
+create table if not exists service_products (
+  id text primary key,
+  service_order_id text not null references service_orders(id) on delete cascade,
+  product_name text not null,
+  quantity real not null default 1,
+  unit text not null default 'unidad',
+  unit_price real not null default 0,
+  total_price real not null default 0,
+  notes text,
+  created_at text not null
+);
+
+create index if not exists idx_products_order on service_products(service_order_id);
+```
+
+## 11. Agregar fotos/evidencias a una base ya creada
+
+Si la base D1 ya existía antes de esta función, ejecuta en **D1 > Console** el contenido de:
+
+`cloudflare-d1-photos-migration.sql`
+
+También debes crear el bucket R2 y el binding `EVIDENCE_BUCKET`.
+
+## 12. Si aparece error de conexión
 
 Revisa:
 
 - Que la base D1 exista.
 - Que ejecutaste `cloudflare-d1-schema.sql`.
+- Que si actualizaste la app, ejecutaste `cloudflare-d1-products-migration.sql`.
+- Que si activaste fotos, ejecutaste `cloudflare-d1-photos-migration.sql`.
 - Que el binding en Cloudflare Pages se llame exactamente `DB`.
+- Que el binding R2 para fotos se llame exactamente `EVIDENCE_BUCKET`.
 - Que hiciste deploy después de crear el binding.
 
 ## Nota

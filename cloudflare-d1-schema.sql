@@ -52,6 +52,30 @@ create table if not exists service_updates (
   created_at text not null
 );
 
+create table if not exists service_products (
+  id text primary key,
+  service_order_id text not null references service_orders(id) on delete cascade,
+  product_name text not null,
+  quantity real not null default 1,
+  unit text not null default 'unidad',
+  unit_price real not null default 0,
+  total_price real not null default 0,
+  notes text,
+  created_at text not null
+);
+
+create table if not exists service_photos (
+  id text primary key,
+  service_order_id text not null references service_orders(id) on delete cascade,
+  uploaded_by text not null references users(id),
+  file_key text not null unique,
+  file_name text not null,
+  content_type text not null,
+  file_size integer not null default 0,
+  caption text,
+  created_at text not null
+);
+
 create index if not exists idx_users_email on users(email);
 create index if not exists idx_users_role on users(role);
 create index if not exists idx_sessions_user on sessions(user_id);
@@ -62,3 +86,6 @@ create index if not exists idx_orders_technician on service_orders(technician_id
 create index if not exists idx_orders_engineer on service_orders(engineer_id);
 create index if not exists idx_orders_date on service_orders(scheduled_date);
 create index if not exists idx_updates_order on service_updates(service_order_id);
+create index if not exists idx_products_order on service_products(service_order_id);
+create index if not exists idx_photos_order on service_photos(service_order_id);
+create index if not exists idx_photos_uploaded_by on service_photos(uploaded_by);
