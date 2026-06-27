@@ -1,13 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Tecnalisis Servicios">
-  <defs>
-    <linearGradient id="g" x1="14" y1="12" x2="82" y2="86" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#23d3bd"/>
-      <stop offset="1" stop-color="#2563eb"/>
-    </linearGradient>
-  </defs>
-  <rect width="96" height="96" rx="24" fill="#0b1636"/>
-  <path d="M48 12 78 25v22c0 20-12.4 32.6-30 38-17.6-5.4-30-18-30-38V25l30-13Z" fill="url(#g)"/>
-  <path d="M55 29 37 50h13l-7 18 18-23H48l7-16Z" fill="#fff"/>
-  <circle cx="31" cy="30" r="4" fill="#0b1636" opacity=".45"/>
-  <circle cx="66" cy="61" r="4" fill="#0b1636" opacity=".45"/>
-</svg>
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
