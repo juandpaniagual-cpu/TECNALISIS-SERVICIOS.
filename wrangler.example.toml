@@ -1,0 +1,11 @@
+name = "tecnalisis-servicios"
+compatibility_date = "2026-06-27"
+pages_build_output_dir = "."
+
+# Copia este archivo como wrangler.toml solo si vas a usar Wrangler.
+# Si configuras el binding desde el dashboard de Cloudflare, no necesitas wrangler.toml.
+#
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "tecnalisis-servicios-db"
+# database_id = "REEMPLAZA_CON_EL_ID_DE_TU_D1"
