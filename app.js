@@ -349,7 +349,11 @@ function filteredServices() {
   let output = roleServices();
   if (state.filters.query) output = output.filter(service => serviceMatchesQuery(service, state.filters.query));
   if (state.filters.technician !== "Todos") output = output.filter(service => service.technicianId === state.filters.technician);
-  if (state.filters.status !== "Todos") output = output.filter(service => service.status === state.filters.status);
+  if (state.filters.status === "Abiertos") {
+    output = output.filter(service => service.status !== "Completado");
+  } else if (state.filters.status !== "Todos") {
+    output = output.filter(service => service.status === state.filters.status);
+  }
   if (state.filters.priority !== "Todas") output = output.filter(service => service.priority === state.filters.priority);
   return output;
 }
@@ -569,13 +573,14 @@ function pageHead(title, subtitle, actions = "") {
   `;
 }
 
-function metric(label, value, detail, tone) {
+function metric(label, value, detail, tone, filterStatus = "Todos") {
   return `
-    <article class="metric-card metric-${tone}">
+    <button type="button" class="metric-card metric-${tone}" data-dashboard-status="${escapeHtml(filterStatus)}">
       <span>${escapeHtml(label)}</span>
       <strong>${escapeHtml(value)}</strong>
       <small>${escapeHtml(detail)}</small>
-    </article>
+      <em>Ver servicios</em>
+    </button>
   `;
 }
 
@@ -607,6 +612,18 @@ function renderDashboard() {
   const completed = visible.filter(service => service.status === "Completado").length;
   const next = [...visible].sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate)).slice(0, 5);
   const recent = [...visible].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 4);
+  const total = Math.max(visible.length, 1);
+  const byStatus = STATUS_LABELS.map(status => ({
+    label: status,
+    count: visible.filter(service => service.status === status).length
+  }));
+  const byTechnician = users
+    .filter(user => user.role === "technician" && user.active !== false)
+    .map(user => ({
+      user,
+      count: visible.filter(service => service.technicianId === user.id).length
+    }))
+    .filter(item => item.count > 0 || currentUser.role !== "technician");
 
   $("#content").innerHTML = `
     ${pageHead(
@@ -616,10 +633,36 @@ function renderDashboard() {
         : "Aquí tienes el estado general de la operación."
     )}
     <div class="metrics-grid">
-      ${metric("Servicios abiertos", open, "Pendientes o en ejecución", "teal")}
-      ${metric("En progreso", inProgress, "Actualmente en campo", "blue")}
-      ${metric("En revisión", review, "Requieren seguimiento", "amber")}
-      ${metric("Completados", completed, "Cerrados y aprobados", "violet")}
+      ${metric("Servicios abiertos", open, "Pendientes o en ejecución", "teal", "Abiertos")}
+      ${metric("En progreso", inProgress, "Actualmente en campo", "blue", "En progreso")}
+      ${metric("En revisión", review, "Requieren seguimiento", "amber", "En revisión")}
+      ${metric("Completados", completed, "Cerrados y aprobados", "violet", "Completado")}
+    </div>
+    <div class="grid-two dashboard-insights">
+      <section class="panel">
+        <div class="panel-head"><div><h2>Filtrar por estado</h2><p>Clic en una barra para ver el detalle</p></div></div>
+        <div class="bar-list">
+          ${byStatus.map(item => `
+            <button type="button" class="bar-item interactive-bar" data-dashboard-status="${escapeHtml(item.label)}">
+              <span>${escapeHtml(item.label)}</span>
+              <span class="bar-track"><i style="width:${Math.round((item.count / total) * 100)}%"></i></span>
+              <strong>${item.count}</strong>
+            </button>
+          `).join("")}
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><div><h2>Filtrar por técnico</h2><p>Clic para revisar servicios asignados</p></div></div>
+        <div class="bar-list">
+          ${byTechnician.length ? byTechnician.map(item => `
+            <button type="button" class="bar-item interactive-bar" data-dashboard-technician="${escapeHtml(item.user.id)}">
+              <span>${escapeHtml(item.user.fullName)}</span>
+              <span class="bar-track"><i style="width:${Math.round((item.count / total) * 100)}%"></i></span>
+              <strong>${item.count}</strong>
+            </button>
+          `).join("") : `<div class="empty compact">Aún no hay técnicos con servicios.</div>`}
+        </div>
+      </section>
     </div>
     <div class="grid-two">
       <section class="panel">
@@ -639,7 +682,7 @@ function renderDashboard() {
           ${recent.length ? recent.map(service => {
             const update = service.updates.at(-1);
             return `
-              <div class="timeline-item">
+              <div class="timeline-item timeline-clickable" data-service-id="${escapeHtml(service.id)}">
                 <p><strong>${escapeHtml(service.id)}</strong> · ${escapeHtml(update?.note || service.description)}</p>
                 <small>${escapeHtml(update?.author || "Sistema")} · ${escapeHtml(formatDateTime(update?.createdAt || service.createdAt))}</small>
               </div>
@@ -651,6 +694,7 @@ function renderDashboard() {
   `;
   wireServiceClicks();
   wireGoButtons();
+  wireDashboardInteractions();
 }
 
 function technicianFilterOptions() {
@@ -674,7 +718,8 @@ function renderServices() {
       <input id="filter-query" value="${escapeHtml(state.filters.query)}" placeholder="Buscar por cliente, equipo, orden o técnico..." />
       <select id="filter-technician">${technicianFilterOptions()}</select>
       <select id="filter-status">
-        <option>Todos</option>
+        <option ${state.filters.status === "Todos" ? "selected" : ""}>Todos</option>
+        <option ${state.filters.status === "Abiertos" ? "selected" : ""}>Abiertos</option>
         ${STATUS_LABELS.map(status => `<option ${state.filters.status === status ? "selected" : ""}>${status}</option>`).join("")}
       </select>
       <select id="filter-priority">
@@ -934,6 +979,33 @@ function wireGoButtons() {
     state.view = button.dataset.go;
     render();
   }));
+}
+
+function openServicesWithFilters({ status = "Todos", technician = "Todos", priority = "Todas", query = "" } = {}) {
+  state.filters.status = status;
+  state.filters.technician = technician;
+  state.filters.priority = priority;
+  state.filters.query = query;
+  state.view = "services";
+  render();
+}
+
+function wireDashboardInteractions() {
+  $$("[data-dashboard-status]").forEach(button => {
+    button.addEventListener("click", () => {
+      openServicesWithFilters({
+        status: button.dataset.dashboardStatus || "Todos"
+      });
+    });
+  });
+
+  $$("[data-dashboard-technician]").forEach(button => {
+    button.addEventListener("click", () => {
+      openServicesWithFilters({
+        technician: button.dataset.dashboardTechnician || "Todos"
+      });
+    });
+  });
 }
 
 function wireServiceClicks() {

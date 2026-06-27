@@ -446,10 +446,19 @@ button { cursor: pointer; }
   position: relative;
   overflow: hidden;
   padding: 21px;
+  text-align: left;
+  cursor: pointer;
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  color: var(--ink);
   background: #fff;
   box-shadow: 0 12px 32px rgba(16, 31, 70, .06);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.metric-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--metric), white 40%);
+  box-shadow: 0 18px 42px rgba(16, 31, 70, .12);
 }
 .metric-card::after {
   content: "";
@@ -464,6 +473,14 @@ button { cursor: pointer; }
 .metric-card span { color: var(--muted); font-weight: 700; font-size: 12px; }
 .metric-card strong { display: block; margin-top: 12px; font-size: 32px; }
 .metric-card small { color: var(--muted); }
+.metric-card em {
+  display: inline-flex;
+  margin-top: 12px;
+  color: var(--teal-dark);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
 .metric-teal { --metric: var(--teal); }
 .metric-blue { --metric: var(--blue); }
 .metric-amber { --metric: var(--amber); }
@@ -653,6 +670,23 @@ button { cursor: pointer; }
   gap: 12px;
   font-size: 12px;
 }
+.interactive-bar {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.interactive-bar:hover {
+  border-color: #d8f2ed;
+  background: #f7fffd;
+}
+.dashboard-insights { margin-bottom: 20px; }
+.timeline-clickable { cursor: pointer; }
+.timeline-clickable:hover { background: #effbf8; }
 .bar-track {
   overflow: hidden;
   height: 9px;
