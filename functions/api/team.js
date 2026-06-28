@@ -7,15 +7,16 @@ export async function onRequestGet(context) {
   const result = await session.db.prepare(`
     select id, full_name, email, role, job_title, phone, active
     from users
-    where active = 1
+    where (? = 'admin' or active = 1)
     order by
+      active asc,
       case role
         when 'admin' then 1
         when 'engineer' then 2
         else 3
       end,
       full_name
-  `).all();
+  `).bind(session.user.role).all();
 
   return json({ users: (result.results || []).map(publicUser) });
 }
