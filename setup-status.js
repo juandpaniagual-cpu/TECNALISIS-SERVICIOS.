@@ -1,11 +1,9 @@
-import { clearSessionCookie, json, requireUser } from "../_lib.js";
+import { json, requireUser, sessionCookie } from "../_lib.js";
 
-export async function onRequestPost(context) {
+export async function onRequestGet(context) {
   const session = await requireUser(context);
   if (session.error) return session.error;
-
-  await session.db.prepare("delete from sessions where token = ?").bind(session.token).run();
-  return json({ ok: true }, 200, {
-    "Set-Cookie": clearSessionCookie()
+  return json({ user: session.user }, 200, {
+    "Set-Cookie": sessionCookie(session.token)
   });
 }

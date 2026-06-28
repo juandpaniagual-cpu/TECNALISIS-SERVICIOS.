@@ -73,6 +73,7 @@ export async function hashPassword(password, salt, env = {}) {
 
 export function publicUser(row) {
   if (!row) return null;
+  const activeValue = Number(row.active);
   return {
     id: row.id,
     fullName: row.full_name,
@@ -80,7 +81,8 @@ export function publicUser(row) {
     role: row.role,
     jobTitle: row.job_title,
     phone: row.phone || "",
-    active: Boolean(row.active)
+    active: activeValue === 1,
+    accessStatus: activeValue === 1 ? "active" : activeValue < 0 ? "disabled" : "pending"
   };
 }
 

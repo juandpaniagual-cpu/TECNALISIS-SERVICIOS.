@@ -214,8 +214,8 @@
     <form class="modal-card modal-small" id="user-form">
       <div class="modal-header">
         <div>
-          <span class="eyebrow">NUEVO USUARIO</span>
-          <h2>Crear integrante</h2>
+          <span class="eyebrow" id="user-modal-eyebrow">NUEVO USUARIO</span>
+          <h2 id="user-modal-title">Crear integrante</h2>
         </div>
         <button type="button" class="icon-button" data-close-user-modal>×</button>
       </div>
@@ -236,13 +236,16 @@
         <label class="field">Cargo
           <input name="jobTitle" placeholder="Técnico / Ingeniero" />
         </label>
-        <label class="field field-full">Contraseña temporal
-          <input type="password" name="password" minlength="8" placeholder="Mínimo 8 caracteres" required />
+        <label class="field">Teléfono
+          <input name="phone" placeholder="Opcional" />
+        </label>
+        <label class="field field-full" id="user-password-field">Contraseña temporal
+          <input type="password" name="password" id="user-password-input" minlength="8" placeholder="Mínimo 8 caracteres" required />
         </label>
       </div>
       <div class="modal-footer">
         <button type="button" class="secondary-button" data-close-user-modal>Cancelar</button>
-        <button type="submit" class="primary-button">Crear usuario</button>
+        <button type="submit" class="primary-button" id="user-submit-button">Crear usuario</button>
       </div>
     </form>
   </div>

@@ -1,44 +1,17 @@
-import { canReadService, getEvidenceBucket, getServiceByCode, json, requireUser } from "../../../../_lib.js";
+-- Migración para agregar fotos/evidencias a una base D1 ya creada.
+-- Ejecutar en Cloudflare D1 > Console.
 
-function inlineFileName(name) {
-  return String(name || "evidencia.jpg").replaceAll('"', "");
-}
+create table if not exists service_photos (
+  id text primary key,
+  service_order_id text not null references service_orders(id) on delete cascade,
+  uploaded_by text not null references users(id),
+  file_key text not null unique,
+  file_name text not null,
+  content_type text not null,
+  file_size integer not null default 0,
+  caption text,
+  created_at text not null
+);
 
-export async function onRequestGet(context) {
-  const session = await requireUser(context);
-  if (session.error) return session.error;
-
-  try {
-    const bucket = getEvidenceBucket(context);
-    const code = context.params.id;
-    const photoId = context.params.photoId;
-    const service = await getServiceByCode(session.db, code);
-    if (!service) return json({ error: "Servicio no encontrado." }, 404);
-    if (!canReadService(session.user, service)) {
-      return json({ error: "No tienes permiso para ver esta evidencia." }, 403);
-    }
-
-    const photo = await session.db.prepare(`
-      select *
-      from service_photos
-      where id = ?
-        and service_order_id = ?
-    `).bind(photoId, service.id).first();
-
-    if (!photo) return json({ error: "Foto no encontrada." }, 404);
-
-    const object = await bucket.get(photo.file_key);
-    if (!object) return json({ error: "Archivo no encontrado en R2." }, 404);
-
-    return new Response(object.body, {
-      headers: {
-        "Content-Type": photo.content_type || "application/octet-stream",
-        "Content-Disposition": `inline; filename="${inlineFileName(photo.file_name)}"`,
-        "Cache-Control": "private, max-age=300",
-        "X-Content-Type-Options": "nosniff"
-      }
-    });
-  } catch (error) {
-    return json({ error: error.message }, 500);
-  }
-}
+create index if not exists idx_photos_order on service_photos(service_order_id);
+create index if not exists idx_photos_uploaded_by on service_photos(uploaded_by);

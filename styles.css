@@ -254,7 +254,7 @@ button { cursor: pointer; }
   padding: 30px 32px 54px;
 }
 
-.primary-button, .secondary-button, .ghost-button, .icon-button {
+.primary-button, .secondary-button, .ghost-button, .danger-button, .icon-button {
   border: 0;
   border-radius: 12px;
   font-weight: 800;
@@ -278,6 +278,18 @@ button { cursor: pointer; }
   color: #526079;
   border: 1px solid #dbe1eb;
   background: #fff;
+}
+.danger-button {
+  min-height: 42px;
+  padding: 0 16px;
+  color: #b42338;
+  border: 1px solid #ffd1d8;
+  background: #fff0f3;
+}
+.danger-button:hover {
+  color: #fff;
+  background: #d92d4c;
+  border-color: #d92d4c;
 }
 .ghost-button {
   width: 100%;
@@ -656,6 +668,16 @@ button { cursor: pointer; }
   font-size: 12px;
 }
 .team-stats strong { display: block; color: var(--ink); font-size: 18px; }
+.team-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.team-actions button {
+  min-height: 38px;
+  padding: 0 12px;
+}
 .card-note {
   margin: 10px 0;
   color: var(--muted);
