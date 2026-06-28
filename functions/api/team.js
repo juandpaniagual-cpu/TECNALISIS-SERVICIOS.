@@ -7,7 +7,7 @@ export async function onRequestGet(context) {
   const result = await session.db.prepare(`
     select id, full_name, email, role, job_title, phone, active
     from users
-    where (? = 'admin' or active = 1)
+    where ((? = 'admin' and active >= 0) or active = 1)
     order by
       active asc,
       case role
@@ -41,8 +41,8 @@ export async function onRequestPost(context) {
     const jobTitle = String(body.jobTitle || "").trim() || roleTitle(body.role);
 
     await session.db.prepare(`
-      insert into users (id, full_name, email, password_salt, password_hash, role, job_title, active, created_at, updated_at)
-      values (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+      insert into users (id, full_name, email, password_salt, password_hash, role, job_title, phone, active, created_at, updated_at)
+      values (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
     `).bind(
       id,
       String(body.fullName).trim(),
@@ -51,6 +51,7 @@ export async function onRequestPost(context) {
       passwordHash,
       body.role,
       jobTitle,
+      String(body.phone || "").trim(),
       nowIso(),
       nowIso()
     ).run();
@@ -62,6 +63,7 @@ export async function onRequestPost(context) {
         email,
         role: body.role,
         jobTitle,
+        phone: String(body.phone || "").trim(),
         active: true
       }
     }, 201);

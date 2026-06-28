@@ -17,6 +17,7 @@ Esta versión **no usa Supabase**. Funciona con:
 - Solicitud pública de acceso desde el enlace compartido.
 - Aprobación de usuarios por el administrador antes de permitir ingreso.
 - Edición y eliminación/desactivación de usuarios desde Equipo.
+- App instalable en celular como PWA.
 - Roles:
   - Administrador: crea usuarios, crea órdenes y cambia cualquier estado.
   - Técnico: ve sus órdenes asignadas, documenta el servicio y cambia el estado.
@@ -175,6 +176,8 @@ En esa misma pantalla puedes:
 
 La eliminación es segura: el usuario queda desactivado para conservar el historial de servicios.
 
+La sesión queda guardada de forma prolongada. Si el usuario no cierra sesión, podrá abrir la app desde el ícono del celular sin volver a escribir usuario y contraseña constantemente.
+
 ## 8. Enlace para compartir con técnicos e ingenieros
 
 El enlace público de la aplicación es el mismo para todos:
@@ -191,6 +194,16 @@ Para compartirlo:
 6. En **Solicitudes pendientes**, revisa la persona y da clic en **Autorizar ingreso**.
 
 Sin autorización del administrador, el usuario no puede iniciar sesión.
+
+## 8.1. Instalar en celular
+
+La app se puede instalar desde el navegador:
+
+- En Android/Chrome: abre el enlace y toca **Instalar app** si aparece el botón.
+- Si no aparece el botón: abre el menú de Chrome y elige **Instalar app** o **Agregar a pantalla de inicio**.
+- En iPhone/Safari: toca **Compartir** y luego **Agregar a pantalla de inicio**.
+
+Después de iniciar sesión una vez, el usuario podrá abrir la app desde el ícono instalado. La sesión queda activa mientras no cierre sesión o el administrador desactive el usuario.
 
 Permisos de estados:
 

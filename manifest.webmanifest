@@ -1,0 +1,35 @@
+{
+  "name": "Tecnalisis Servicios",
+  "short_name": "Tecnalisis",
+  "description": "Control de mantenimiento, técnicos, ingenieros, órdenes de servicio e insumos.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b1636",
+  "theme_color": "#18bfa8",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Servicios",
+      "short_name": "Servicios",
+      "description": "Abrir órdenes de servicio",
+      "url": "/?view=services",
+      "icons": [
+        {
+          "src": "/logo.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}

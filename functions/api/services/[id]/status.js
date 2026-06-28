@@ -16,17 +16,13 @@ export async function onRequestPost(context) {
     if (missing) return json({ error: missing }, 400);
     if (!VALID_STATUSES.includes(body.status)) return json({ error: "Estado inválido." }, 400);
 
-    if (session.user.role === "technician") {
-      if (service.technician_id !== session.user.id) {
-        return json({ error: "Solo puedes actualizar servicios asignados a ti." }, 403);
-      }
-      if (!["En progreso", "En revisión"].includes(body.status)) {
-        return json({ error: "El técnico solo puede iniciar el servicio o enviarlo a revisión." }, 403);
-      }
-    }
+    const canChangeStatus =
+      session.user.role === "admin" ||
+      session.user.role === "engineer" ||
+      (session.user.role === "technician" && service.technician_id === session.user.id);
 
-    if (session.user.role === "engineer" && service.engineer_id && service.engineer_id !== session.user.id) {
-      return json({ error: "Este servicio está asignado a otro ingeniero." }, 403);
+    if (!canChangeStatus) {
+      return json({ error: "No tienes permiso para cambiar el estado de esta orden." }, 403);
     }
 
     const createdAt = nowIso();

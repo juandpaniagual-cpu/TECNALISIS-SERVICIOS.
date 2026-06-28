@@ -3,7 +3,6 @@ import { assertRole, json, nowIso, readJson, requireUser, roleTitle } from "../.
 export async function onRequestPost(context) {
   const session = await requireUser(context);
   if (session.error) return session.error;
-
   const roleError = assertRole(session.user, ["admin"]);
   if (roleError) return roleError;
 
@@ -16,16 +15,11 @@ export async function onRequestPost(context) {
       return json({ error: "Rol inválido." }, 400);
     }
 
-    const user = await session.db
-      .prepare("select * from users where id = ?")
-      .bind(id)
-      .first();
-
-    if (!user) {
-      return json({ error: "Usuario no encontrado." }, 404);
-    }
+    const user = await session.db.prepare("select * from users where id = ?").bind(id).first();
+    if (!user) return json({ error: "Usuario no encontrado." }, 404);
 
     const jobTitle = String(body.jobTitle || "").trim() || user.job_title || roleTitle(role);
+    const updatedAt = nowIso();
 
     await session.db.prepare(`
       update users
@@ -34,9 +28,20 @@ export async function onRequestPost(context) {
           job_title = ?,
           updated_at = ?
       where id = ?
-    `).bind(role, jobTitle, nowIso(), id).run();
+    `).bind(role, jobTitle, updatedAt, id).run();
 
-    return json({ ok: true });
+    return json({
+      ok: true,
+      user: {
+        id,
+        fullName: user.full_name,
+        email: user.email,
+        role,
+        jobTitle,
+        phone: user.phone || "",
+        active: true
+      }
+    });
   } catch (error) {
     return json({ error: error.message }, 500);
   }

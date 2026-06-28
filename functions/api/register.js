@@ -17,19 +17,19 @@ export async function onRequestPost(context) {
 
     const email = cleanEmail(body.email);
     const existing = await db.prepare("select id, active from users where lower(email) = ?").bind(email).first();
-
     if (existing?.active) {
-      return json({ error: "Ya existe un usuario activo con ese correo." }, 409);
+      return json({ error: "Ya existe un usuario activo con ese correo. Inicia sesión o pide al administrador revisar tu acceso." }, 409);
     }
-
     if (existing) {
-      return json({ error: "Ya tienes una solicitud pendiente. Espera autorización del administrador." }, 409);
+      return json({ error: "Ya tienes una solicitud pendiente. Espera la autorización del administrador." }, 409);
     }
 
     const id = crypto.randomUUID();
     const salt = randomHex(16);
     const passwordHash = await hashPassword(body.password, salt, context.env);
     const createdAt = nowIso();
+    const jobTitle = String(body.jobTitle || "").trim() || roleTitle(body.role);
+    const phone = String(body.phone || "").trim();
 
     await db.prepare(`
       insert into users (
@@ -44,8 +44,8 @@ export async function onRequestPost(context) {
       salt,
       passwordHash,
       body.role,
-      String(body.jobTitle || "").trim() || roleTitle(body.role),
-      String(body.phone || "").trim(),
+      jobTitle,
+      phone,
       createdAt,
       createdAt
     ).run();
@@ -55,6 +55,10 @@ export async function onRequestPost(context) {
       message: "Solicitud enviada. El administrador debe aprobar tu acceso antes de ingresar."
     }, 201);
   } catch (error) {
+    const message = String(error.message || "");
+    if (message.includes("UNIQUE")) {
+      return json({ error: "Ya existe una solicitud o usuario con ese correo." }, 409);
+    }
     return json({ error: error.message }, 500);
   }
 }

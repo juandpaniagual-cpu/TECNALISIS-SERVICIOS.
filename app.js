@@ -110,6 +110,7 @@ let serverMode = false;
 let users = [...DEMO_USERS];
 let services = loadDemoServices();
 let currentUser = null;
+let deferredInstallPrompt = null;
 
 const state = {
   view: "dashboard",
@@ -119,7 +120,8 @@ const state = {
     status: "Todos",
     priority: "Todas"
   },
-  selectedServiceId: null
+  selectedServiceId: null,
+  editingUserId: null
 };
 
 const $ = selector => document.querySelector(selector);
@@ -397,6 +399,47 @@ function getShareUrl() {
   }
   return window.location.origin;
 }
+
+function isInstalledApp() {
+  return window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
+}
+
+function updateInstallButtons() {
+  const canInstall = !isInstalledApp();
+  $$("[data-install-app]").forEach(button => {
+    button.classList.toggle("hidden", !canInstall);
+  });
+}
+
+async function installApp() {
+  if (!deferredInstallPrompt) {
+    toast("Si no aparece la instalación, abre el menú del navegador y elige Instalar app o Agregar a pantalla de inicio.");
+    return;
+  }
+
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  updateInstallButtons();
+}
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(error => console.warn("Service worker no registrado", error));
+  });
+}
+
+window.addEventListener("beforeinstallprompt", event => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  updateInstallButtons();
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  updateInstallButtons();
+  toast("App instalada. Ahora puedes abrirla desde el ícono del celular.");
+});
 
 async function copyShareLink() {
   const url = getShareUrl();
@@ -830,8 +873,8 @@ function renderReports() {
 
 function renderTeam() {
   const canCreate = currentUser.role === "admin";
-  const pendingUsers = users.filter(user => user.active === false);
-  const activeUsers = users.filter(user => user.active !== false);
+  const pendingUsers = users.filter(user => user.accessStatus === "pending" || (user.active === false && user.accessStatus !== "disabled"));
+  const activeUsers = users.filter(user => user.accessStatus === "active" || user.active === true);
   $("#content").innerHTML = `
     ${pageHead("Equipo", "Usuarios activos, solicitudes y carga de trabajo", canCreate ? `<button class="primary-button" id="new-user-button">+ Nuevo usuario</button>` : "")}
     ${canCreate && pendingUsers.length ? `
@@ -863,13 +906,14 @@ function renderTeam() {
                 </select>
               </label>
               <button class="primary-button" data-approve-user="${escapeHtml(user.id)}">Autorizar ingreso</button>
+              <button class="danger-button" data-delete-user="${escapeHtml(user.id)}">Eliminar solicitud</button>
             </article>
           `).join("")}
         </div>
       </section>
     ` : ""}
     <div class="team-grid">
-      ${activeUsers.map(user => {
+      ${activeUsers.length ? activeUsers.map(user => {
         const assigned = services.filter(service => service.technicianId === user.id || service.engineerId === user.id);
         const completed = assigned.filter(service => service.status === "Completado").length;
         return `
@@ -886,16 +930,28 @@ function renderTeam() {
               <div><strong>${assigned.length}</strong> Servicios</div>
               <div><strong>${completed}</strong> Cerrados</div>
             </div>
+            ${canCreate ? `
+              <div class="team-actions">
+                <button class="secondary-button" data-edit-user="${escapeHtml(user.id)}">Editar</button>
+                ${user.id !== currentUser.id ? `<button class="danger-button" data-delete-user="${escapeHtml(user.id)}">Eliminar</button>` : ""}
+              </div>
+            ` : ""}
           </article>
         `;
-      }).join("")}
+      }).join("") : `<div class="empty">No hay usuarios activos para mostrar.</div>`}
     </div>
   `;
 
   if (canCreate) {
-    $("#new-user-button").addEventListener("click", openUserModal);
+    $("#new-user-button")?.addEventListener("click", () => openUserModal());
     $$("[data-approve-user]").forEach(button => {
       button.addEventListener("click", () => approveUser(button.dataset.approveUser));
+    });
+    $$("[data-edit-user]").forEach(button => {
+      button.addEventListener("click", () => openUserModal(button.dataset.editUser));
+    });
+    $$("[data-delete-user]").forEach(button => {
+      button.addEventListener("click", () => deleteUser(button.dataset.deleteUser));
     });
   }
 }
@@ -1095,12 +1151,35 @@ async function createService(event) {
   }
 }
 
-function openUserModal() {
-  $("#user-form").reset();
+function openUserModal(userId = null) {
+  const form = $("#user-form");
+  const passwordInput = $("#user-password-input");
+  const editingUser = userId ? users.find(user => user.id === userId) : null;
+
+  state.editingUserId = editingUser?.id || null;
+  form.reset();
+
+  $("#user-modal-eyebrow").textContent = editingUser ? "EDITAR USUARIO" : "NUEVO USUARIO";
+  $("#user-modal-title").textContent = editingUser ? "Editar integrante" : "Crear integrante";
+  $("#user-submit-button").textContent = editingUser ? "Guardar cambios" : "Crear usuario";
+  $("#user-password-field").firstChild.textContent = editingUser ? "Nueva contraseña (opcional)" : "Contraseña temporal";
+  passwordInput.required = !editingUser;
+  passwordInput.placeholder = editingUser ? "Dejar vacío para conservar la actual" : "Mínimo 8 caracteres";
+
+  if (editingUser) {
+    form.elements.fullName.value = editingUser.fullName || "";
+    form.elements.email.value = editingUser.email || "";
+    form.elements.role.value = editingUser.role || "technician";
+    form.elements.jobTitle.value = editingUser.jobTitle || DEFAULT_JOB_TITLE[editingUser.role] || "";
+    form.elements.phone.value = editingUser.phone || "";
+    form.elements.password.value = "";
+  }
+
   $("#user-modal").classList.remove("hidden");
 }
 
 function closeUserModal() {
+  state.editingUserId = null;
   $("#user-modal").classList.add("hidden");
 }
 
@@ -1180,31 +1259,78 @@ async function approveUser(userId) {
 async function createUser(event) {
   event.preventDefault();
   const values = Object.fromEntries(new FormData(event.currentTarget));
+  const editingId = state.editingUserId;
+  if (editingId && !String(values.password || "").trim()) {
+    delete values.password;
+  }
 
   try {
     if (serverMode) {
-      await api("/api/team", {
+      await api(editingId ? `/api/team/${encodeURIComponent(editingId)}/update` : "/api/team", {
         method: "POST",
         body: values
       });
       await loadServerData();
       closeUserModal();
       render();
-      toast("Usuario creado correctamente.");
+      toast(editingId ? "Usuario actualizado correctamente." : "Usuario creado correctamente.");
       return;
     }
 
-    users.push({
-      id: `demo-user-${Date.now()}`,
-      fullName: values.fullName,
-      email: values.email,
-      role: values.role,
-      jobTitle: values.jobTitle || DEFAULT_JOB_TITLE[values.role],
-      active: true
-    });
+    if (editingId) {
+      const user = users.find(item => item.id === editingId);
+      if (user) {
+        user.fullName = values.fullName;
+        user.email = values.email;
+        user.role = values.role;
+        user.jobTitle = values.jobTitle || DEFAULT_JOB_TITLE[values.role];
+        user.phone = values.phone || "";
+      }
+    } else {
+      users.push({
+        id: `demo-user-${Date.now()}`,
+        fullName: values.fullName,
+        email: values.email,
+        role: values.role,
+        jobTitle: values.jobTitle || DEFAULT_JOB_TITLE[values.role],
+        phone: values.phone || "",
+        active: true,
+        accessStatus: "active"
+      });
+    }
     closeUserModal();
     render();
-    toast("Usuario demo creado.");
+    toast(editingId ? "Usuario demo actualizado." : "Usuario demo creado.");
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+async function deleteUser(userId) {
+  const user = users.find(item => item.id === userId);
+  if (!user) return;
+  if (user.id === currentUser.id) {
+    toast("No puedes eliminar tu propio usuario.");
+    return;
+  }
+
+  const ok = confirm(`¿Eliminar/desactivar a ${user.fullName}? Ya no podrá ingresar a la app.`);
+  if (!ok) return;
+
+  try {
+    if (serverMode) {
+      await api(`/api/team/${encodeURIComponent(userId)}/delete`, {
+        method: "POST"
+      });
+      await loadServerData();
+      render();
+      toast(`${user.fullName} fue desactivado.`);
+      return;
+    }
+
+    users = users.filter(item => item.id !== userId);
+    render();
+    toast(`${user.fullName} eliminado en modo demo.`);
   } catch (error) {
     toast(error.message);
   }
@@ -1521,6 +1647,7 @@ $("#service-drawer").addEventListener("click", event => {
 $("#login-form").addEventListener("submit", signIn);
 $("#setup-form").addEventListener("submit", createFirstAdmin);
 $("#request-access-button").addEventListener("click", openAccessModal);
+$$("[data-install-app]").forEach(button => button.addEventListener("click", installApp));
 $("#demo-login-button").addEventListener("click", () => enterDemo());
 $("#setup-demo-button").addEventListener("click", () => enterDemo());
 $("#logout-button").addEventListener("click", logout);
@@ -1534,4 +1661,5 @@ document.addEventListener("keydown", event => {
   }
 });
 
+updateInstallButtons();
 start();

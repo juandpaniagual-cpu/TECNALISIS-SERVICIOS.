@@ -1,4 +1,4 @@
-import { cleanEmail, createSession, getDB, hashPassword, json, nowIso, randomHex, readJson, requireFields } from "../_lib.js";
+import { cleanEmail, createSession, getDB, hashPassword, json, nowIso, randomHex, readJson, requireFields, sessionCookie } from "../_lib.js";
 
 export async function onRequestPost(context) {
   try {
@@ -35,6 +35,8 @@ export async function onRequestPost(context) {
         jobTitle: "Administrador",
         active: true
       }
+    }, 200, {
+      "Set-Cookie": sessionCookie(token)
     });
   } catch (error) {
     return json({ error: error.message }, 500);

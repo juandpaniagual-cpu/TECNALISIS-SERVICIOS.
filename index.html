@@ -7,6 +7,8 @@
   <meta name="description" content="Control de mantenimiento y seguimiento de servicios para Tecnalisis" />
   <title>Tecnalisis Servicios | Control de mantenimiento</title>
   <link rel="icon" href="./logo.svg" type="image/svg+xml" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./logo.svg" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -39,6 +41,7 @@
       <div class="login-error hidden" id="login-error"></div>
       <button type="submit" class="primary-button">Ingresar</button>
       <button type="button" class="secondary-button" id="request-access-button">Solicitar acceso</button>
+      <button type="button" class="secondary-button hidden" data-install-app>Instalar app</button>
       <button type="button" class="ghost-button" id="demo-login-button">Ver modo demo</button>
       <small>Acceso protegido por Cloudflare Functions + D1</small>
     </form>
@@ -109,6 +112,7 @@
           <option value="technician">Técnico</option>
           <option value="engineer">Ingeniero</option>
         </select>
+        <button class="secondary-button hidden" data-install-app>Instalar app</button>
         <button class="primary-button" id="new-service-button">+ Nuevo servicio</button>
       </header>
 

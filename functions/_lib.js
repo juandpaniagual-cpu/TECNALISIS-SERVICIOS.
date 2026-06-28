@@ -1,11 +1,32 @@
-export function json(data, status = 200) {
+const SESSION_COOKIE = "tecnalisis_session";
+const SESSION_DAYS = 180;
+
+export function json(data, status = 200, extraHeaders = {}) {
+  const headers = new Headers(extraHeaders);
+  headers.set("Content-Type", "application/json; charset=utf-8");
+  headers.set("Cache-Control", "no-store");
+
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store"
-    }
+    headers
   });
+}
+
+export function sessionCookie(token) {
+  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${60 * 60 * 24 * SESSION_DAYS}`;
+}
+
+export function clearSessionCookie() {
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+}
+
+function cookieValue(request, name) {
+  const cookie = request.headers.get("Cookie") || "";
+  return cookie
+    .split(";")
+    .map(part => part.trim())
+    .find(part => part.startsWith(`${name}=`))
+    ?.slice(name.length + 1) || "";
 }
 
 export async function readJson(request) {
@@ -53,6 +74,7 @@ export async function hashPassword(password, salt, env = {}) {
 
 export function publicUser(row) {
   if (!row) return null;
+  const activeValue = Number(row.active);
   return {
     id: row.id,
     fullName: row.full_name,
@@ -60,11 +82,20 @@ export function publicUser(row) {
     role: row.role,
     jobTitle: row.job_title,
     phone: row.phone || "",
-    active: Boolean(row.active)
+    active: activeValue === 1,
+    accessStatus: activeValue === 1 ? "active" : activeValue < 0 ? "disabled" : "pending"
   };
 }
 
-export function publicService(row, updates = []) {
+export function getEvidenceBucket(context) {
+  const bucket = context.env.EVIDENCE_BUCKET;
+  if (!bucket) {
+    throw new Error("No existe el binding R2 llamado EVIDENCE_BUCKET. En Cloudflare Pages agrega un bucket R2 con binding EVIDENCE_BUCKET.");
+  }
+  return bucket;
+}
+
+export function publicService(row, updates = [], products = [], photos = []) {
   return {
     id: row.code,
     dbId: row.id,
@@ -79,7 +110,9 @@ export function publicService(row, updates = []) {
     status: row.status,
     description: row.description || "",
     createdAt: row.created_at,
-    updates
+    updates,
+    products,
+    photos
   };
 }
 
@@ -88,14 +121,16 @@ export async function createSession(db, userId) {
   await db.prepare(`
     insert into sessions (token, user_id, expires_at, created_at)
     values (?, ?, ?, ?)
-  `).bind(token, userId, addDaysIso(7), nowIso()).run();
+  `).bind(token, userId, addDaysIso(SESSION_DAYS), nowIso()).run();
   return token;
 }
 
 export async function requireUser(context) {
   const db = getDB(context);
   const header = context.request.headers.get("Authorization") || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  const token = header.startsWith("Bearer ")
+    ? header.slice(7).trim()
+    : cookieValue(context.request, SESSION_COOKIE);
 
   if (!token) {
     return { error: json({ error: "Sesión requerida." }, 401) };

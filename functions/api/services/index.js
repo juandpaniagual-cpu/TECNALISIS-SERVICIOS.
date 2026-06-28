@@ -10,6 +10,32 @@ function mapUpdate(row) {
   };
 }
 
+function mapProduct(row) {
+  return {
+    id: row.id,
+    productName: row.product_name,
+    quantity: Number(row.quantity || 0),
+    unit: row.unit || "unidad",
+    unitPrice: Number(row.unit_price || 0),
+    totalPrice: Number(row.total_price || 0),
+    notes: row.notes || "",
+    createdAt: row.created_at
+  };
+}
+
+function mapPhoto(row) {
+  return {
+    id: row.id,
+    fileName: row.file_name,
+    contentType: row.content_type,
+    fileSize: Number(row.file_size || 0),
+    caption: row.caption || "",
+    uploadedBy: row.uploader_name || "Usuario",
+    createdAt: row.created_at,
+    url: `/api/services/${encodeURIComponent(row.order_code)}/photos/${encodeURIComponent(row.id)}`
+  };
+}
+
 export async function onRequestGet(context) {
   const session = await requireUser(context);
   if (session.error) return session.error;
@@ -34,11 +60,52 @@ export async function onRequestGet(context) {
   `).bind(session.user.role, session.user.id).all();
 
   const updates = updatesResult.results || [];
+  let products = [];
+  let photos = [];
+
+  try {
+    const productsResult = await session.db.prepare(`
+      select
+        sp.*,
+        so.code as order_code
+      from service_products sp
+      join service_orders so on so.id = sp.service_order_id
+      where (? in ('admin', 'engineer') or so.technician_id = ?)
+      order by sp.created_at asc
+    `).bind(session.user.role, session.user.id).all();
+    products = productsResult.results || [];
+  } catch (error) {
+    if (!String(error.message || "").includes("service_products")) throw error;
+  }
+
+  try {
+    const photosResult = await session.db.prepare(`
+      select
+        sp.*,
+        so.code as order_code,
+        u.full_name as uploader_name
+      from service_photos sp
+      join service_orders so on so.id = sp.service_order_id
+      left join users u on u.id = sp.uploaded_by
+      where (? in ('admin', 'engineer') or so.technician_id = ?)
+      order by sp.created_at asc
+    `).bind(session.user.role, session.user.id).all();
+    photos = photosResult.results || [];
+  } catch (error) {
+    if (!String(error.message || "").includes("service_photos")) throw error;
+  }
+
   const services = (servicesResult.results || []).map(row => {
     const serviceUpdates = updates
       .filter(update => update.service_order_id === row.id)
       .map(mapUpdate);
-    return publicService(row, serviceUpdates);
+    const serviceProducts = products
+      .filter(product => product.service_order_id === row.id)
+      .map(mapProduct);
+    const servicePhotos = photos
+      .filter(photo => photo.service_order_id === row.id)
+      .map(mapPhoto);
+    return publicService(row, serviceUpdates, serviceProducts, servicePhotos);
   });
 
   return json({ services });
@@ -108,6 +175,33 @@ export async function onRequestPost(context) {
       values (?, ?, ?, 'Orden creada.', 'Pendiente', ?)
     `).bind(crypto.randomUUID(), id, session.user.id, createdAt).run();
 
+    const products = Array.isArray(body.products) ? body.products : [];
+    for (const item of products) {
+      const productName = String(item.productName || "").trim();
+      if (!productName) continue;
+      const quantity = Math.max(Number(item.quantity || 1), 0);
+      const unitPrice = Math.max(Number(item.unitPrice || 0), 0);
+      const totalPrice = quantity * unitPrice;
+
+      await session.db.prepare(`
+        insert into service_products (
+          id, service_order_id, product_name, quantity, unit, unit_price,
+          total_price, notes, created_at
+        )
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        crypto.randomUUID(),
+        id,
+        productName,
+        quantity || 1,
+        String(item.unit || "unidad").trim() || "unidad",
+        unitPrice,
+        totalPrice,
+        String(item.notes || "").trim(),
+        createdAt
+      ).run();
+    }
+
     return json({
       service: {
         id: code,
@@ -123,7 +217,22 @@ export async function onRequestPost(context) {
         status: "Pendiente",
         description: String(body.description).trim(),
         createdAt,
-        updates: [{ author: session.user.fullName, note: "Orden creada.", createdAt }]
+        updates: [{ author: session.user.fullName, note: "Orden creada.", createdAt }],
+        products: products
+          .filter(item => String(item.productName || "").trim())
+          .map(item => {
+            const quantity = Math.max(Number(item.quantity || 1), 0) || 1;
+            const unitPrice = Math.max(Number(item.unitPrice || 0), 0);
+            return {
+              productName: String(item.productName).trim(),
+              quantity,
+              unit: String(item.unit || "unidad").trim() || "unidad",
+              unitPrice,
+              totalPrice: quantity * unitPrice,
+              notes: String(item.notes || "").trim(),
+              createdAt
+            };
+          })
       }
     }, 201);
   } catch (error) {
